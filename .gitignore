@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Home Assistant runtime data
+custom_components/smartalarm/alarm_cache/
+
+# Local/runtime files
+*.log
+*.tmp
+
+# Generated packages
+*.zip
+
+# Local editor/OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
