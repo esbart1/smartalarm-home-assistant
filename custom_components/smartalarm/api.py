@@ -86,7 +86,7 @@ class SmartAlarmApi:
             await resp.release()
 
     async def async_get_devices(self) -> list[dict[str, Any]]:
-        """Full authenticated device inventory; called by the 30-second coordinator."""
+        """Read the full authenticated SmartAlarm device inventory."""
         resp = await self._request("GET", f"{BASE_URL}/instellingen/apparaten")
         try:
             status = resp.status
@@ -110,8 +110,7 @@ class SmartAlarmApi:
             clean = unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", str(name))).strip())
             if not clean:
                 return
-            lowered = clean.casefold()
-            if "afstandsbediening" in lowered:
+            if "afstandsbediening" in clean.casefold():
                 return
             try:
                 device_id = int(device_id)
@@ -143,9 +142,17 @@ class SmartAlarmApi:
         if parsed is not None:
             walk(parsed)
         else:
-            for match in re.finditer(r"/device/(\d+)/edit", text, re.I):
-                device_id = int(match.group(1))
-                block = text[max(0, match.start() - 1200) : min(len(text), match.end() + 3000)]
+            # Parse one complete <a>...</a> device block at a time. This is
+            # important for devices such as 04 Voordeur Vertraagd that can
+            # have no signal image of their own; never borrow the signal from
+            # the preceding or following device.
+            anchor_pattern = re.compile(
+                r'<a\b[^>]*href=["\'][^"\']*/device/(\d+)/edit[^"\']*["\'][^>]*>.*?</a>',
+                re.I | re.S,
+            )
+            for anchor in anchor_pattern.finditer(text):
+                device_id = int(anchor.group(1))
+                block = anchor.group(0)
                 name_match = re.search(
                     r"list-item-text[^>]*>.*?<span[^>]*>\s*(.*?)\s*</span>",
                     block,
