@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SmartAlarm",
+        "description": "Enter your SmartAlarm login details.",
+        "data": {
+          "email": "Email address",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Login to SmartAlarm failed."
+    }
+  }
+}
