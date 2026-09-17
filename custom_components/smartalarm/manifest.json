@@ -1,0 +1,12 @@
+{
+  "domain": "smartalarm",
+  "name": "SmartAlarm",
+  "version": "0.4.1",
+  "documentation": "https://github.com/esbart1/smartalarm-home-assistant",
+  "issue_tracker": "https://github.com/esbart1/smartalarm-home-assistant/issues",
+  "requirements": [],
+  "codeowners": ["@esbart1"],
+  "config_flow": true,
+  "integration_type": "hub",
+  "iot_class": "cloud_polling"
+}
