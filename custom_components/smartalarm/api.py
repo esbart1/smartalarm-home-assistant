@@ -1,363 +1,183 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
+from html import unescape
 from typing import Any
 
 import aiohttp
-from bs4 import BeautifulSoup
+
+from .const import BASE_ID, BASE_URL, STATE_AWAY, STATE_DISARM, STATE_HOME
 
 _LOGGER = logging.getLogger(__name__)
 
-from .const import (
-    BASE_URL,
-    BASE_ID,
-    STATE_AWAY,
-    STATE_HOME,
-    STATE_DISARM,
-)
-
 
 class SmartAlarmApi:
-    def __init__(self, email: str, password: str):
+    """Minimal async client for the SmartAlarm web application/API."""
+
+    def __init__(self, email: str, password: str) -> None:
         self.email = email
         self.password = password
         self.session: aiohttp.ClientSession | None = None
         self.csrf: str | None = None
 
-    async def _ensure_session(self):
+    async def _ensure_session(self) -> None:
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession(
-                cookie_jar=aiohttp.CookieJar()
+                cookie_jar=aiohttp.CookieJar(),
+                timeout=aiohttp.ClientTimeout(total=20, connect=10),
             )
 
-    async def async_login(self):
+    async def async_login(self) -> None:
         await self._ensure_session()
-
-        async with self.session.get(
-            f"{BASE_URL}/login",
-            headers={
-                "User-Agent": "Home Assistant SmartAlarm"
-            },
-        ) as resp:
+        async with self.session.get(f"{BASE_URL}/login", headers={"User-Agent": "Home Assistant SmartAlarm"}) as resp:
             html = await resp.text()
-
-        match = re.search(
-            r'<meta[^>]+name=["\']csrf-token["\'][^>]+content=["\']([^"\']+)',
-            html,
-            re.I,
-        )
-
-        if not match:
-            match = re.search(
-                r'<input[^>]+name=["\']_token["\'][^>]+value=["\']([^"\']+)',
-                html,
-                re.I,
-            )
-
+        match = re.search(r'<meta[^>]+name=["\']csrf-token["\'][^>]+content=["\']([^"\']+)', html, re.I) or re.search(r'<input[^>]+name=["\']_token["\'][^>]+value=["\']([^"\']+)', html, re.I)
         if not match:
             raise RuntimeError("CSRF token not found")
-
         self.csrf = match.group(1)
-
         async with self.session.post(
             f"{BASE_URL}/login",
-            data={
-                "_token": self.csrf,
-                "email": self.email,
-                "password": self.password,
-            },
-            headers={
-                "User-Agent": "Home Assistant SmartAlarm",
-                "Referer": f"{BASE_URL}/login",
-            },
+            data={"_token": self.csrf, "email": self.email, "password": self.password},
+            headers={"User-Agent": "Home Assistant SmartAlarm", "Referer": f"{BASE_URL}/login"},
             allow_redirects=True,
         ) as resp:
-            final_url = str(resp.url)
-
-            if final_url.endswith("/login"):
+            if str(resp.url).endswith("/login"):
                 raise RuntimeError("SmartAlarm login failed")
 
     async def _request(self, method: str, url: str):
         await self._ensure_session()
-
-        headers = {
-            "User-Agent": "Home Assistant SmartAlarm",
-            "Accept": "application/json, text/javascript, */*; q=0.01",
-            "X-Requested-With": "XMLHttpRequest",
-        }
-
+        headers = {"User-Agent": "Home Assistant SmartAlarm", "Accept": "application/json, text/javascript, */*; q=0.01", "X-Requested-With": "XMLHttpRequest"}
         if self.csrf:
             headers["X-CSRF-TOKEN"] = self.csrf
-
-        resp = await self.session.request(
-            method,
-            url,
-            headers=headers,
-        )
-
-        if resp.status == 401:
+        resp = await self.session.request(method, url, headers=headers)
+        if resp.status in (401, 419):
             await resp.release()
-
             await self.async_login()
-
-            resp = await self.session.request(
-                method,
-                url,
-                headers=headers,
-            )
-
+            headers["X-CSRF-TOKEN"] = self.csrf or ""
+            resp = await self.session.request(method, url, headers=headers)
         return resp
 
-    #####################
     async def async_update(self) -> dict[str, Any]:
-        """Update alle SmartAlarm gegevens."""
-
-        # ---------------------------------------------------------
-        # 1. Bestaande JSON API
-        # ---------------------------------------------------------
-        resp = await self._request(
-            "GET",
-            f"{BASE_URL}/json/bases/me?take=12",
-        )
-
-        if resp.status >= 400:
-            text = await resp.text()
+        resp = await self._request("GET", f"{BASE_URL}/json/bases/me?take=12")
+        try:
+            if resp.status >= 400:
+                text = await resp.text()
+                raise RuntimeError(f"SmartAlarm HTTP {resp.status}: {text[:200]}")
+            return self._parse(await resp.json(content_type=None))
+        finally:
             await resp.release()
 
-            raise RuntimeError(
-                f"SmartAlarm HTTP {resp.status}: {text[:200]}"
-            )
-
-        data = await resp.json(content_type=None)
-        await resp.release()
-
-        # Dit is de bestaande functionaliteit.
-        parsed = self._parse(data)
-
-        # ---------------------------------------------------------
-        # 2. Apparaten ophalen
-        #
-        # BELANGRIJK:
-        # Een fout hier mag de alarm-integratie NIET stoppen.
-        # ---------------------------------------------------------
+    async def async_get_devices(self) -> list[dict[str, Any]]:
+        resp = await self._request("GET", f"{BASE_URL}/instellingen/apparaten")
         try:
-            devices = await self._async_get_devices()
-            parsed["devices"] = devices
+            status = resp.status
+            text = await resp.text()
+        finally:
+            await resp.release()
+        if status >= 400:
+            raise RuntimeError(f"SmartAlarm devices HTTP {status}: {text[:200]}")
 
-        except Exception as err:
-            # Alarm/status blijft gewoon beschikbaar.
-            parsed["devices"] = []
+        devices: list[dict[str, Any]] = []
+        try:
+            parsed = json.loads(text)
+        except (TypeError, ValueError):
+            parsed = None
 
-            # Alleen loggen; geen exception doorgeven.
-            _LOGGER.warning(
-                "SmartAlarm apparaten konden niet worden opgehaald: %s",
-                err,
-            )
+        def add_device(device: dict[str, Any]) -> None:
+            device_id = device.get("id")
+            name = device.get("name")
+            if device_id is None or not name:
+                return
+            clean = unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", str(name))).strip())
+            if not clean:
+                return
+            lowered = clean.casefold()
+            if "afstandsbediening" in lowered or "bedieningspaneel" in lowered:
+                return
+            try:
+                device_id = int(device_id)
+            except (TypeError, ValueError):
+                return
+            devices.append({"id": device_id, "name": clean, "signal_strength": device.get("rssi", device.get("signal_strength")), "state": device.get("state"), "device_type_id": device.get("device_type_id")})
 
-        return parsed
-######################################
+        def walk(obj: Any) -> None:
+            if isinstance(obj, dict):
+                if isinstance(obj.get("devices"), list):
+                    for item in obj["devices"]:
+                        if isinstance(item, dict):
+                            add_device(item)
+                else:
+                    for value in obj.values():
+                        walk(value)
+            elif isinstance(obj, list):
+                for value in obj:
+                    walk(value)
+
+        if parsed is not None:
+            walk(parsed)
+        else:
+            for match in re.finditer(r"/device/(\d+)/edit", text, re.I):
+                device_id = int(match.group(1))
+                block = text[max(0, match.start() - 1200): min(len(text), match.end() + 2500)]
+                name_match = re.search(r"(?:list-item-text|device-name)[^>]*>.*?<span[^>]*>\s*(.*?)\s*</span>", block, re.I | re.S)
+                if name_match:
+                    add_device({"id": device_id, "name": name_match.group(1)})
+
+        unique: list[dict[str, Any]] = []
+        seen: set[int] = set()
+        for device in devices:
+            if device["id"] not in seen:
+                seen.add(device["id"])
+                unique.append(device)
+        _LOGGER.debug("SmartAlarm: %d apparaten gevonden", len(unique))
+        return unique
 
     def _parse(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Parse de bestaande SmartAlarm JSON response."""
-
         state = None
-        events = []
+        events: list[dict[str, Any]] = []
 
-        def walk(obj):
+        def walk(obj: Any) -> None:
             nonlocal state, events
-
             if isinstance(obj, dict):
-
                 if state is None:
                     for key in ("state", "status"):
                         value = obj.get(key)
-
-                        if value in (
-                            STATE_AWAY,
-                            STATE_HOME,
-                            STATE_DISARM,
-                        ):
+                        if value in (STATE_AWAY, STATE_HOME, STATE_DISARM):
                             state = value
-
                 if isinstance(obj.get("events"), list):
                     events = obj["events"]
-
                 for value in obj.values():
                     walk(value)
-
             elif isinstance(obj, list):
                 for value in obj:
                     walk(value)
 
         walk(data)
+        clean_events = [{"id": e.get("id"), "created_at": e.get("created_at"), "message": e.get("message"), "device_id": e.get("device_id"), "state": e.get("state")} for e in events if isinstance(e, dict)]
+        return {"state": state, "events": clean_events, "raw": data}
 
-        parsed_events = []
-
-        for event in events:
-            if isinstance(event, dict):
-                parsed_events.append({
-                    "id": event.get("id"),
-                    "created_at": event.get("created_at"),
-                    "message": event.get("message"),
-                    "device_id": event.get("device_id"),
-                    "state": event.get("state"),
-                })
-
-        return {
-            "state": state,
-            "events": parsed_events,
-            "raw": data,
-        }
-
-    async def _async_get_devices(self) -> list[dict[str, Any]]:
-        """Lees alle apparaten van de SmartAlarm apparatenpagina."""
-
-        await self._ensure_session()
-
-        async with self.session.get(
-            f"{BASE_URL}/instellingen/apparaten",
-            headers={
-                "User-Agent": "Home Assistant SmartAlarm",
-                "Accept": "text/html,application/xhtml+xml",
-            },
-        ) as resp:
-
-            if resp.status >= 400:
-                text = await resp.text()
-
-                raise RuntimeError(
-                    f"SmartAlarm apparaten HTTP {resp.status}: "
-                    f"{text[:200]}"
-                )
-
-            html = await resp.text()
-
-        soup = BeautifulSoup(html, "html.parser")
-
-        devices: list[dict[str, Any]] = []
-
-        for link in soup.select(
-            'a[href*="/device/"][href*="/edit"]'
-        ):
-            href = link.get("href")
-
-            if not href:
-                continue
-
-            # -----------------------------------------------------
-            # Device ID
-            #
-            # /device/20474/edit
-            # -----------------------------------------------------
-            parts = href.rstrip("/").split("/")
-
-            device_id = None
-
-            if "device" in parts:
-                index = parts.index("device")
-
-                if index + 1 < len(parts):
-                    device_id = parts[index + 1]
-
-            if device_id is None:
-                continue
-
-            # -----------------------------------------------------
-            # Naam
-            # -----------------------------------------------------
-            name_element = link.select_one(
-                ".list-item-text span"
-            )
-
-            if name_element:
-                name = name_element.get_text(strip=True)
-            else:
-                name = f"Device {device_id}"
-
-            # -----------------------------------------------------
-            # Signaalsterkte
-            # -----------------------------------------------------
-            signal_element = link.select_one(
-                ".signal-strength img[title]"
-            )
-
-            signal = None
-
-            if signal_element:
-                signal = signal_element.get("title")
-
-            # -----------------------------------------------------
-            # Waarschuwing
-            # -----------------------------------------------------
-            warning = bool(
-                link.select_one(
-                    ".fa-exclamation-triangle"
-                )
-            )
-
-            # -----------------------------------------------------
-            # Apparaat opslaan
-            # -----------------------------------------------------
-            devices.append({
-                "id": device_id,
-                "name": name,
-                "url": href,
-                "signal": signal,
-                "warning": warning,
-            })
-
-        return devices
-
-    async def async_set_state(self, state: str):
-        """Zet het SmartAlarm aan/uit."""
-
-        if state not in (
-            STATE_AWAY,
-            STATE_HOME,
-            STATE_DISARM,
-        ):
+    async def async_set_state(self, state: str) -> dict[str, Any]:
+        if state not in (STATE_AWAY, STATE_HOME, STATE_DISARM):
             raise ValueError("Invalid SmartAlarm state")
-
         await self._ensure_session()
-
         if not self.csrf:
             await self.async_login()
-
-        url = (
-            f"{BASE_URL}/bases/"
-            f"{BASE_ID}/state/{state}"
-        )
-
-        headers = {
-            "User-Agent": "Home Assistant SmartAlarm",
-            "Accept": "*/*",
-            "X-CSRF-TOKEN": self.csrf,
-            "X-Requested-With": "XMLHttpRequest",
-            "Origin": BASE_URL,
-            "Referer": f"{BASE_URL}/",
-        }
-
         resp = await self.session.put(
-            url,
-            headers=headers,
+            f"{BASE_URL}/bases/{BASE_ID}/state/{state}",
+            headers={"User-Agent": "Home Assistant SmartAlarm", "Accept": "*/*", "X-CSRF-TOKEN": self.csrf or "", "X-Requested-With": "XMLHttpRequest", "Origin": BASE_URL, "Referer": f"{BASE_URL}/"},
         )
-
-        text = await resp.text()
-
-        if resp.status >= 400:
-            raise RuntimeError(
-                "SmartAlarm state change failed: "
-                f"HTTP {resp.status} {text[:200]}"
-            )
-
+        try:
+            text = await resp.text()
+            if resp.status >= 400:
+                raise RuntimeError(f"SmartAlarm state change failed: HTTP {resp.status} {text[:200]}")
+        finally:
+            await resp.release()
         await asyncio.sleep(0.5)
-
         return await self.async_update()
 
-    async def async_close(self):
-        """Sluit de SmartAlarm sessie."""
-
+    async def async_close(self) -> None:
         if self.session and not self.session.closed:
             await self.session.close()
