@@ -76,7 +76,7 @@ class SmartAlarmSignalStore:
 
         if migrated:
             try:
-                await self.hass.async_add_executor_job(self._write)
+                await self._safe_write()
             except Exception as err:
                 _LOGGER.warning("SmartAlarm signaalcache migratie schrijven mislukt: %s", err)
 
@@ -154,19 +154,6 @@ class SmartAlarmSignalStore:
     def warning_threshold(self, device_id: int) -> float | None:
         ref = self.reference(device_id)
         return round(ref * self.warning_ratio(device_id), 1) if ref is not None else None
-
-    def signal_trend(self, device_id: int) -> dict[str, Any]:
-        history = [h for h in self.get(device_id).get("signal_history", []) if isinstance(h, dict) and isinstance(h.get("avg"), (int, float))]
-        if len(history) < 2:
-            return {"direction": "onvoldoende gegevens", "delta_db": None, "delta_percent": None, "samples": len(history)}
-        recent = history[-SIGNAL_TREND_BUCKETS:]
-        split = max(0, len(history) - len(recent))
-        older = history[max(0, split - SIGNAL_TREND_BUCKETS):split] or history[:max(1, len(history) // 2)]
-        old_avg = sum(float(h["avg"]) for h in older) / len(older)
-        new_avg = sum(float(h["avg"]) for h in recent) / len(recent)
-        delta = round(new_avg - old_avg, 1)
-        direction = "dalend" if delta <= -5 else "stijgend" if delta >= 5 else "stabiel"
-        return {"direction": direction, "delta_db": delta, "delta_percent": round(delta / old_avg * 100, 1) if old_avg else None, "samples": len(history)}
 
     async def async_set_normal_ratio(self, device_id: int, value_percent: float) -> None:
         key = str(device_id)
@@ -283,13 +270,13 @@ class SmartAlarmSignalStore:
 
     def status(self, device_id: int, current: float | None) -> str:
         if current is None:
-            return "Onbekend - geen recent signaal"
+            return "Geen recent signaal"
         if self.is_calibrating(device_id):
             done, total = self.calibration_progress(device_id)
             return f"Kalibreren ({done}/{total})"
         reference = self.reference(device_id)
         if reference is None or reference <= 0:
-            return "Onbekend - niet gekalibreerd"
+            return "Nog niet gekalibreerd"
         ratio = current / reference
         if ratio >= self.normal_ratio(device_id):
             return "Normaal"
