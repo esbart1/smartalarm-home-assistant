@@ -5,9 +5,10 @@ from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntityFeature,
     AlarmControlPanelState,
 )
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, STATE_AWAY, STATE_HOME, STATE_DISARM
+from .const import BASE_ID, DOMAIN, STATE_AWAY, STATE_HOME, STATE_DISARM
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -30,8 +31,17 @@ class SmartAlarmAlarmPanel(CoordinatorEntity, AlarmControlPanelEntity):
         self._attr_unique_id = f"{entry.entry_id}_alarm"
 
     @property
-    def alarm_state(self) -> AlarmControlPanelState | None:
-        state = self.coordinator.data.get("state")
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"base_{BASE_ID}")},
+            name="SmartAlarm alarmpaneel",
+            manufacturer="SmartAlarm",
+            model="Alarmcentrale",
+        )
+
+    @property
+    def alarm_state(self):
+        state = (self.coordinator.data or {}).get("state")
         return {
             STATE_AWAY: AlarmControlPanelState.ARMED_AWAY,
             STATE_HOME: AlarmControlPanelState.ARMED_HOME,
