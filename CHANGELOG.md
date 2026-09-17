@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2
+
+Test release following the first clean GitHub installation.
+
+- Restored the working SmartAlarm alarm control panel with away, home and disarm controls and the correct alarm-panel device.
+- Restored the SmartAlarm control-panel device discovery from the authenticated device inventory.
+- Restored the two per-device signal threshold entities: normal and warning.
+- Smoke and CO alarm detection now follows explicit fire/CO alarm events instead of generic `open`/`on` device states.
+- Smoke, heat and CO entities remain linked to the SmartAlarm fire-alarm panel.
+- Improved authenticated HTML device-page parsing of signal values.
+- Kept persistent calibration protection and event/signal history handling from 0.4.1.
+
 ## 0.4.1
 
 First GitHub release candidate based on the tested SmartAlarm development build.
