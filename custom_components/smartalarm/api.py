@@ -22,13 +22,11 @@ class SmartAlarmApi:
         self.password = password
         self.session: aiohttp.ClientSession | None = None
         self.csrf: str | None = None
+        self._devices_cache: list[dict[str, Any]] = []
 
     async def _ensure_session(self) -> None:
         if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession(
-                cookie_jar=aiohttp.CookieJar(),
-                timeout=aiohttp.ClientTimeout(total=20, connect=10),
-            )
+            self.session = aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar(), timeout=aiohttp.ClientTimeout(total=20, connect=10))
 
     async def async_login(self) -> None:
         await self._ensure_session()
@@ -38,12 +36,7 @@ class SmartAlarmApi:
         if not match:
             raise RuntimeError("CSRF token not found")
         self.csrf = match.group(1)
-        async with self.session.post(
-            f"{BASE_URL}/login",
-            data={"_token": self.csrf, "email": self.email, "password": self.password},
-            headers={"User-Agent": "Home Assistant SmartAlarm", "Referer": f"{BASE_URL}/login"},
-            allow_redirects=True,
-        ) as resp:
+        async with self.session.post(f"{BASE_URL}/login", data={"_token": self.csrf, "email": self.email, "password": self.password}, headers={"User-Agent": "Home Assistant SmartAlarm", "Referer": f"{BASE_URL}/login"}, allow_redirects=True) as resp:
             if str(resp.url).endswith("/login"):
                 raise RuntimeError("SmartAlarm login failed")
 
@@ -61,16 +54,20 @@ class SmartAlarmApi:
         return resp
 
     async def async_update(self) -> dict[str, Any]:
+        """Fast polling: alarm/events; device data comes from the 30-second cache."""
         resp = await self._request("GET", f"{BASE_URL}/json/bases/me?take=12")
         try:
             if resp.status >= 400:
                 text = await resp.text()
                 raise RuntimeError(f"SmartAlarm HTTP {resp.status}: {text[:200]}")
-            return self._parse(await resp.json(content_type=None))
+            parsed = self._parse(await resp.json(content_type=None))
+            parsed["devices"] = list(self._devices_cache)
+            return parsed
         finally:
             await resp.release()
 
     async def async_get_devices(self) -> list[dict[str, Any]]:
+        """Full authenticated device inventory; called every 30 seconds."""
         resp = await self._request("GET", f"{BASE_URL}/instellingen/apparaten")
         try:
             status = resp.status
@@ -132,6 +129,7 @@ class SmartAlarmApi:
             if device["id"] not in seen:
                 seen.add(device["id"])
                 unique.append(device)
+        self._devices_cache = unique
         _LOGGER.debug("SmartAlarm: %d apparaten gevonden", len(unique))
         return unique
 
@@ -154,10 +152,8 @@ class SmartAlarmApi:
             elif isinstance(obj, list):
                 for value in obj:
                     walk(value)
-
         walk(data)
-        clean_events = [{"id": e.get("id"), "created_at": e.get("created_at"), "message": e.get("message"), "device_id": e.get("device_id"), "state": e.get("state")} for e in events if isinstance(e, dict)]
-        return {"state": state, "events": clean_events, "raw": data}
+        return {"state": state, "events": [{"id": e.get("id"), "created_at": e.get("created_at"), "message": e.get("message"), "device_id": e.get("device_id"), "state": e.get("state")} for e in events if isinstance(e, dict)], "raw": data}
 
     async def async_set_state(self, state: str) -> dict[str, Any]:
         if state not in (STATE_AWAY, STATE_HOME, STATE_DISARM):
@@ -165,10 +161,7 @@ class SmartAlarmApi:
         await self._ensure_session()
         if not self.csrf:
             await self.async_login()
-        resp = await self.session.put(
-            f"{BASE_URL}/bases/{BASE_ID}/state/{state}",
-            headers={"User-Agent": "Home Assistant SmartAlarm", "Accept": "*/*", "X-CSRF-TOKEN": self.csrf or "", "X-Requested-With": "XMLHttpRequest", "Origin": BASE_URL, "Referer": f"{BASE_URL}/"},
-        )
+        resp = await self.session.put(f"{BASE_URL}/bases/{BASE_ID}/state/{state}", headers={"User-Agent": "Home Assistant SmartAlarm", "Accept": "*/*", "X-CSRF-TOKEN": self.csrf or "", "X-Requested-With": "XMLHttpRequest", "Origin": BASE_URL, "Referer": f"{BASE_URL}/"})
         try:
             text = await resp.text()
             if resp.status >= 400:
