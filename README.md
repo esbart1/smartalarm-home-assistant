@@ -2,30 +2,31 @@
 
 Custom Home Assistant integration for SmartAlarm.
 
-The integration connects to the SmartAlarm cloud service and provides alarm control, event history, device states, signal strength monitoring, signal diagnostics, and the SmartAlarm fire-alarm panel.
+The integration connects to the SmartAlarm cloud service and provides alarm control, event history, device states, signal strength monitoring, signal diagnostics, and a logical SmartAlarm fire-alarm status.
 
 ## Current status
 
-This repository contains the tested development version that was built incrementally in Home Assistant.
+Version **0.4.2** is the current test build following the first clean GitHub installation.
 
 Included functionality:
 
 - Alarm states: away, home, disarmed
 - Persistent SmartAlarm event history
-- Persistent per-device signal measurements and history
-- Manual signal calibration with a 30-minute safety timeout
+- Persistent per-device signal measurements and hourly history
+- Manual signal calibration with 10 valid measurements and a 30-minute safety timeout
 - Signal status and signal diagnosis
-- Configurable normal/warning signal thresholds
+- Normal and warning signal thresholds per device
 - SmartAlarm device identity based on the SmartAlarm device ID
-- SmartAlarm alarm panel and fire-alarm panel
+- SmartAlarm alarm control panel
+- SmartAlarm fire-alarm status for smoke, heat and CO devices
 - Smoke, heat and CO device handling
-- Dutch translations
+- Dutch and English config-flow translations
 
 ## Installation
 
 ### HACS
 
-This repository can be added to HACS as a custom repository while it is not yet part of the HACS default catalog.
+The repository can be added to HACS as a custom repository while it is not yet part of the HACS default catalog.
 
 Repository:
 
