@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SmartAlarm",
+        "description": "Voer je SmartAlarm inloggegevens in.",
+        "data": {
+          "email": "E-mailadres",
+          "password": "Wachtwoord"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Inloggen bij SmartAlarm is mislukt."
+    }
+  }
+}
