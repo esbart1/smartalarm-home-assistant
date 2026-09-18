@@ -9,8 +9,6 @@ Test build that moves the per-device signal threshold settings from read-only se
 - The calculated threshold in dB remains available as an entity attribute.
 - The existing calibration and threshold storage in `smartalarm_signal.json` is preserved.
 
-# Changelog
-
 ## 0.4.2
 
 Test release following the first clean GitHub installation.
