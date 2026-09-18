@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
@@ -69,6 +70,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = data["coordinator"]
     devices = data["device_coordinator"]
     store: SmartAlarmSignalStore = data["signal_store"]
+
+    registry = er.async_get(hass)
+    for device in devices.data or []:
+        try:
+            did = int(device["id"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        for suffix in ("signal_normal_threshold", "signal_warning_threshold"):
+            old_unique_id = f"{entry.entry_id}_device_{did}_{suffix}"
+            old_entity_id = registry.async_get_entity_id("sensor", DOMAIN, old_unique_id)
+            if old_entity_id:
+                registry.async_remove(old_entity_id)
 
     entities = [
         SmartAlarmStatusSensor(coordinator, entry),
