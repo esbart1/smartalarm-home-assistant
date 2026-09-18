@@ -107,8 +107,6 @@ def _device_entities(devices, store, entry, device):
         SmartAlarmDeviceCalibrationSensor(devices, store, entry, device),
         SmartAlarmDeviceLastSignalSensor(devices, store, entry, device),
         SmartAlarmDeviceSignalDiagnosisSensor(devices, store, entry, device),
-        SmartAlarmDeviceNormalThresholdSensor(devices, store, entry, device),
-        SmartAlarmDeviceWarningThresholdSensor(devices, store, entry, device),
     ]
 
 
@@ -329,64 +327,6 @@ class SmartAlarmDeviceLastSignalSensor(_BaseDeviceSensor):
             "laatste_signaal_waarde": self.store.last_signal_value(self.device_id),
             "signaal_verouderd": _stale(value),
             "signaal_verouderd_na_minuten": SIGNAL_STALE_AFTER_MINUTES,
-        }
-
-
-class SmartAlarmDeviceNormalThresholdSensor(_BaseDeviceSensor):
-    _attr_icon = "mdi:signal-strength-4"
-    _attr_native_unit_of_measurement = "dB"
-
-    def __init__(self, coordinator, store, entry, device):
-        super().__init__(coordinator, store, entry, device)
-        self._attr_unique_id = f"{entry.entry_id}_device_{self.device_id}_signal_normal_threshold"
-
-    @property
-    def name(self):
-        self._refresh_name()
-        return f"{self.device_name} signaalgrens normaal"
-
-    @property
-    def native_value(self):
-        return self.store.normal_threshold(self.device_id)
-
-    @property
-    def available(self):
-        return self.store.reference(self.device_id) is not None
-
-    @property
-    def extra_state_attributes(self):
-        return {
-            "referentie": self.store.reference(self.device_id),
-            "percentage_van_referentie": round(self.store.normal_ratio(self.device_id) * 100, 1),
-        }
-
-
-class SmartAlarmDeviceWarningThresholdSensor(_BaseDeviceSensor):
-    _attr_icon = "mdi:signal-off"
-    _attr_native_unit_of_measurement = "dB"
-
-    def __init__(self, coordinator, store, entry, device):
-        super().__init__(coordinator, store, entry, device)
-        self._attr_unique_id = f"{entry.entry_id}_device_{self.device_id}_signal_warning_threshold"
-
-    @property
-    def name(self):
-        self._refresh_name()
-        return f"{self.device_name} signaalgrens waarschuwing"
-
-    @property
-    def native_value(self):
-        return self.store.warning_threshold(self.device_id)
-
-    @property
-    def available(self):
-        return self.store.reference(self.device_id) is not None
-
-    @property
-    def extra_state_attributes(self):
-        return {
-            "referentie": self.store.reference(self.device_id),
-            "percentage_van_referentie": round(self.store.warning_ratio(self.device_id) * 100, 1),
         }
 
 
