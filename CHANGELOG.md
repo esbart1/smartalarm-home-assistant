@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.3
+
+Test build that moves the per-device signal threshold settings from read-only sensors to configurable Home Assistant number entities with sliders.
+
+- `Signaalgrens normaal` is now an adjustable percentage of the calibrated reference.
+- `Signaalgrens waarschuwing` is now an adjustable percentage of the calibrated reference.
+- The calculated threshold in dB remains available as an entity attribute.
+- The existing calibration and threshold storage in `smartalarm_signal.json` is preserved.
+
+# Changelog
+
 ## 0.4.2
 
 Test release following the first clean GitHub installation.
