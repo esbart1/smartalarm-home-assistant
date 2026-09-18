@@ -10,7 +10,7 @@ from .coordinator import SmartAlarmCoordinator
 from .device_coordinator import SmartAlarmDeviceCoordinator
 from .signal_store import SmartAlarmSignalStore
 
-PLATFORMS = ["sensor", "binary_sensor", "button", "alarm_control_panel"]
+PLATFORMS = ["sensor", "binary_sensor", "button", "number", "alarm_control_panel"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
