@@ -1,12 +1,19 @@
 # SmartAlarm Home Assistant integration
 
-Custom Home Assistant integration for SmartAlarm.
+Nederlandse Home Assistant-integratie voor SmartAlarm.
+
+Deze integratie koppelt het SmartAlarm-alarmsysteem aan Home Assistant en biedt bediening van het alarmsysteem, apparaatstatussen, signaalsterkte en signaaldiagnose, handmatige signaalkalibratie, inbraakmeldingen, sabotage, brand- en CO-meldingen en ondersteuning voor deur-, raam- en bewegingsmelders.
+
+## Nederlandse beschrijving
+
+**SmartAlarm voor Home Assistant** is een onafhankelijke integratie voor het Nederlandse SmartAlarm-platform. De integratie haalt de actuele alarmstatus en apparaatgegevens uit SmartAlarm en maakt deze beschikbaar in Home Assistant. Voor ondersteunde apparaten worden onder meer signaalsterkte, signaalstatus, signaaldiagnose, kalibratie en instelbare signaalgrenzen aangeboden. De echte SmartAlarm-alarmcentrale ondersteunt de standen aan, thuis en uit. Daarnaast zijn inbraak-, sabotage-, brand- en CO-meldingen beschikbaar.
+
 
 The integration connects to the SmartAlarm cloud service and provides alarm control, event history, device states, signal strength monitoring, signal diagnostics, and a logical SmartAlarm fire-alarm status.
 
 ## Current status
 
-Version **0.4.5** is the current test build. The signal thresholds are now configurable Home Assistant number entities with sliders.
+Version **0.4.6** is the current test build. The signal thresholds are now configurable Home Assistant number entities with sliders.
 
 Included functionality:
 
