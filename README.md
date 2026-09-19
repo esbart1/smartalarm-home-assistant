@@ -6,7 +6,7 @@ The integration connects to the SmartAlarm cloud service and provides alarm cont
 
 ## Current status
 
-Version **0.4.4** is the current test build. The signal thresholds are now configurable Home Assistant number entities with sliders.
+Version **0.4.5** is the current test build. The signal thresholds are now configurable Home Assistant number entities with sliders.
 
 Included functionality:
 
@@ -44,7 +44,7 @@ Restart Home Assistant and add **SmartAlarm** through the integration setup scre
 
 ## Important data handling
 
-The integration stores its persistent event and signal history in Home Assistant's `custom_components/smartalarm/alarm_cache` directory. That runtime cache is intentionally excluded from the Git repository.
+The integration stores persistent signal calibration/history and a compact security-relevant event cache in Home Assistant's `custom_components/smartalarm/alarm_cache` directory. Ordinary motion and door/window state history is left to Home Assistant Recorder. The runtime cache is intentionally excluded from the Git repository.
 
 `__pycache__`, Python bytecode, runtime cache data, local logs and generated ZIP files are also excluded from Git.
 
