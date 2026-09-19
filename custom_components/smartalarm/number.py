@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -51,7 +50,6 @@ def _device_entities(coordinator, store, entry, device):
 
 
 class _BaseThresholdNumber(CoordinatorEntity, NumberEntity):
-    _attr_entity_category = EntityCategory.CONFIG
     _attr_native_min_value = 50.0
     _attr_native_step = 1.0
     _attr_native_unit_of_measurement = "%"
