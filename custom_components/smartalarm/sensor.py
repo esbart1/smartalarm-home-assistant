@@ -157,7 +157,13 @@ class SmartAlarmLastEventSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         history = (self.coordinator.data or {}).get("history", [])
-        return {"event_count": len(history), "events": history}
+        latest = history[0] if history else {}
+        return {
+            "event_count": len(history),
+            "laatste_event_id": latest.get("id"),
+            "laatste_event_tijd": latest.get("created_at"),
+            "laatste_event_device_id": latest.get("device_id"),
+        }
 
     @property
     def device_info(self):
