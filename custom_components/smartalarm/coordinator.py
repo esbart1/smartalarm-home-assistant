@@ -24,13 +24,23 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.history_path = Path(hass.config.path("custom_components", DOMAIN, "alarm_cache", "smartalarm_events.json"))
         self._history: list[dict[str, Any]] = []
         self._history_max_events = 200
+        self._history_load_ok = True
 
     async def async_initialize(self) -> None:
         try:
-            self._history = await self.hass.async_add_executor_job(self._read_history)
+            loaded = await self.hass.async_add_executor_job(self._read_history)
         except Exception as err:
             _LOGGER.warning("SmartAlarm gebeurtenissencache lezen mislukt: %s", err)
-            self._history = []
+            self._history_load_ok = False
+            return
+
+        filtered = [event for event in loaded if self._is_significant_event(event)]
+        self._history = sorted(filtered, key=self._sort_key, reverse=True)[: self._history_max_events]
+        if len(filtered) != len(loaded) or len(self._history) != len(filtered):
+            try:
+                await self.hass.async_add_executor_job(self._write_history)
+            except Exception as err:
+                _LOGGER.warning("SmartAlarm gebeurtenissencache opschonen mislukt: %s", err)
 
     def _read_history(self) -> list[dict[str, Any]]:
         if not self.history_path.exists():
@@ -118,7 +128,7 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._history = sorted(
             by_key.values(), key=self._sort_key, reverse=True
         )[: self._history_max_events]
-        if parsed.get("events"):
+        if parsed.get("events") and self._history_load_ok:
             try:
                 await self.hass.async_add_executor_job(self._write_history)
             except Exception as err:
