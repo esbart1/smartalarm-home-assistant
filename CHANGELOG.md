@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.5
+
+Compact event-cache and state-restoration update.
+
+- Ordinary motion and door/window state events are no longer persisted in `smartalarm_events.json`.
+- Security-relevant alarm, intrusion, tamper, fire and CO events remain persisted.
+- The event cache is limited to 200 significant events.
+- Old non-significant events are pruned from the cache on a successful load.
+- The intrusion binary sensor and door/window binary sensors can restore their last known Home Assistant state while current SmartAlarm data is not yet available.
+- The last-event sensor no longer duplicates the complete event cache in its state attributes.
+
 ## 0.4.4
 
 Signal threshold sliders are shown as normal device controls, matching the v40 layout, while remaining adjustable percentage sliders.
