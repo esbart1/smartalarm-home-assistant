@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.6
+
+Cosmetic branding update.
+
+- Added a custom SmartAlarm integration icon under `custom_components/smartalarm/brand/icon.png`.
+- Added a Dutch integration description to the README.
+
 ## 0.4.5
 
 Compact event-cache and state-restoration update.
