@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4
+
+Signal threshold sliders are shown as normal device controls, matching the v40 layout, while remaining adjustable percentage sliders.
+
 ## 0.4.3
 
 Test build that moves the per-device signal threshold settings from read-only sensors to configurable Home Assistant number entities with sliders.
