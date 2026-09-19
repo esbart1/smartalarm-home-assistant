@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import BASE_ID, DOMAIN, STATE_AWAY, STATE_HOME
@@ -248,7 +249,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     dc.async_add_listener(add_new_devices)
 
 
-class SmartAlarmIntrusionSensor(CoordinatorEntity, BinarySensorEntity):
+class SmartAlarmIntrusionSensor(CoordinatorEntity, RestoreEntity, BinarySensorEntity):
     _attr_name = "SmartAlarm inbraak melding"
     _attr_device_class = BinarySensorDeviceClass.SAFETY
     _attr_icon = "mdi:alarm-light"
@@ -256,13 +257,25 @@ class SmartAlarmIntrusionSensor(CoordinatorEntity, BinarySensorEntity):
     def __init__(self, fast, entry):
         super().__init__(fast)
         self._attr_unique_id = f"{entry.entry_id}_intrusion"
+        self._restored_is_on: bool | None = None
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        state = await self.async_get_last_state()
+        if state and state.state in ("on", "off"):
+            self._restored_is_on = state.state == "on"
 
     @property
     def is_on(self):
-        data = self.coordinator.data or {}
+        data = self.coordinator.data
+        if not data:
+            return self._restored_is_on if self._restored_is_on is not None else False
         if data.get("state") not in (STATE_AWAY, STATE_HOME):
             return False
-        events = sorted(list(data.get("history", []) or data.get("events", []) or []), key=_event_sort_key, reverse=True)
+        history = data.get("history")
+        if history is None:
+            return self._restored_is_on if self._restored_is_on is not None else False
+        events = sorted(list(history or []), key=_event_sort_key, reverse=True)
         for event in events:
             kind_name = self._security_event_kind(event)
             if kind_name in ("disarmed", "armed"):
@@ -331,10 +344,19 @@ class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
         return DeviceInfo(**info)
 
 
-class SmartAlarmBinarySensor(_BaseSmartAlarmBinary):
+class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
     def __init__(self, fast, dc, entry, device_id, kind_name, name):
         super().__init__(fast, dc, entry, device_id, name, kind_name)
         self._kind = kind_name
+        self._restored_is_on: bool | None = None
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        if self._kind not in ("door", "window"):
+            return
+        state = await self.async_get_last_state()
+        if state and state.state in ("on", "off", "open", "closed"):
+            self._restored_is_on = state.state in ("on", "open")
         self._attr_device_class = {
             "motion": BinarySensorDeviceClass.MOTION,
             "door": BinarySensorDeviceClass.DOOR,
@@ -361,7 +383,11 @@ class SmartAlarmBinarySensor(_BaseSmartAlarmBinary):
         if self._kind == "motion":
             return state in ("trigger", "open", "on", "alarm")
         if self._kind in ("door", "window"):
-            return state in ("open", "trigger", "on", "alarm")
+            if state in ("open", "trigger", "on", "alarm"):
+                return True
+            if state in ("closed", "normal", "off", "clear"):
+                return False
+            return self._restored_is_on if self._restored_is_on is not None else False
         return state in ("trigger", "alarm", "on", "open")
 
 
