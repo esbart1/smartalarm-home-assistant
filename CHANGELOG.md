@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.7
+
+Small UI and entity-behavior fixes.
+
+- The normal signal threshold uses the same reliable signal icon as the signal-strength entity.
+- Binary sensor device classes are assigned before entity registration, so movement sensors use the correct Home Assistant motion semantics and display states accordingly.
+- The existing event-cache implementation remains in `coordinator.py`; the older standalone `event_store.py` design is no longer used.
+
 ## 0.4.6
 
 Cosmetic branding update.
