@@ -28,7 +28,7 @@ The integration connects to the SmartAlarm cloud service and provides alarm cont
 
 ## Current status
 
-Version **0.4.6** is the current test build. The signal thresholds are now configurable Home Assistant number entities with sliders.
+Version **0.4.7** is the current test build. The signal thresholds are now configurable Home Assistant number entities with sliders.
 
 Included functionality:
 
