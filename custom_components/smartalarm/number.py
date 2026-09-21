@@ -86,7 +86,7 @@ class _BaseThresholdNumber(CoordinatorEntity, NumberEntity):
 
 
 class SmartAlarmDeviceNormalThresholdNumber(_BaseThresholdNumber):
-    _attr_icon = "mdi:signal-strength-4"
+    _attr_icon = "mdi:signal"
     _attr_native_max_value = 100.0
 
     def __init__(self, coordinator, store, entry, device):
