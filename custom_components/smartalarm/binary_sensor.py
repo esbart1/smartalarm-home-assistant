@@ -348,6 +348,14 @@ class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
     def __init__(self, fast, dc, entry, device_id, kind_name, name):
         super().__init__(fast, dc, entry, device_id, name, kind_name)
         self._kind = kind_name
+        self._attr_device_class = {
+            "motion": BinarySensorDeviceClass.MOTION,
+            "door": BinarySensorDeviceClass.DOOR,
+            "window": BinarySensorDeviceClass.WINDOW,
+            "smoke": BinarySensorDeviceClass.SMOKE,
+            "co": BinarySensorDeviceClass.CO,
+            "panel": BinarySensorDeviceClass.CONNECTIVITY,
+        }.get(kind_name)
         self._restored_is_on: bool | None = None
 
     async def async_added_to_hass(self):
@@ -357,14 +365,6 @@ class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
         state = await self.async_get_last_state()
         if state and state.state in ("on", "off", "open", "closed"):
             self._restored_is_on = state.state in ("on", "open")
-        self._attr_device_class = {
-            "motion": BinarySensorDeviceClass.MOTION,
-            "door": BinarySensorDeviceClass.DOOR,
-            "window": BinarySensorDeviceClass.WINDOW,
-            "smoke": BinarySensorDeviceClass.SMOKE,
-            "co": BinarySensorDeviceClass.CO,
-            "panel": BinarySensorDeviceClass.CONNECTIVITY,
-        }.get(kind_name)
 
     @property
     def name(self):
