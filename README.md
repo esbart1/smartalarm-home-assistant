@@ -2,11 +2,26 @@
 
 Nederlandse Home Assistant-integratie voor SmartAlarm.
 
-Deze integratie koppelt het SmartAlarm-alarmsysteem aan Home Assistant en biedt bediening van het alarmsysteem, apparaatstatussen, signaalsterkte en signaaldiagnose, handmatige signaalkalibratie, inbraakmeldingen, sabotage, brand- en CO-meldingen en ondersteuning voor deur-, raam- en bewegingsmelders.
+Met deze integratie kun je het SmartAlarm-alarmsysteem rechtstreeks vanuit Home Assistant bedienen. De alarmcentrale kan vanuit Home Assistant in de standen **aan**, **thuis** en **uit** worden gezet.
+
+Daarnaast worden de afzonderlijke SmartAlarm-apparaten als losse Home Assistant-entiteiten aangeboden. De deur-, raam- en bewegingsmelders kunnen daardoor rechtstreeks worden gebruikt in **Home Assistant-automatiseringen**, meldingen en andere logica. Ook zijn onder meer inbraak-, sabotage-, brand- en CO-meldingen beschikbaar.
 
 ## Nederlandse beschrijving
 
-**SmartAlarm voor Home Assistant** is een onafhankelijke integratie voor het Nederlandse SmartAlarm-platform. De integratie haalt de actuele alarmstatus en apparaatgegevens uit SmartAlarm en maakt deze beschikbaar in Home Assistant. Voor ondersteunde apparaten worden onder meer signaalsterkte, signaalstatus, signaaldiagnose, kalibratie en instelbare signaalgrenzen aangeboden. De echte SmartAlarm-alarmcentrale ondersteunt de standen aan, thuis en uit. Daarnaast zijn inbraak-, sabotage-, brand- en CO-meldingen beschikbaar.
+**SmartAlarm voor Home Assistant** is een onafhankelijke integratie voor het Nederlandse SmartAlarm-platform. De integratie haalt de actuele alarmstatus en apparaatgegevens uit SmartAlarm en maakt deze beschikbaar in Home Assistant.
+
+Naast de bediening van de alarmcentrale biedt de integratie per ondersteund apparaat onder meer:
+- de actuele signaalsterkte;
+- signaalstatus en signaaldiagnose;
+- een eigen handmatige signaalkalibratie;
+- instelbare signaalgrenzen;
+- de afzonderlijke sensorstatus, zodat de sensoren in Home Assistant-automatiseringen kunnen worden gebruikt.
+
+### Waarom iedere sensor afzonderlijk kalibreren?
+
+Iedere SmartAlarm-sensor heeft zijn eigen positie, afstand, bouwmaterialen en lokale omstandigheden. Daarom wordt iedere sensor **afzonderlijk gekalibreerd**. Tijdens een handmatige kalibratie worden geldige metingen verzameld en wordt voor die specifieke sensor een eigen **referentiewaarde** vastgesteld.
+
+Die referentiewaarde is de persoonlijke nulmeting van de sensor: niet een absolute RSSI-waarde van 0 dB, maar het normale ontvangstniveau van die sensor op zijn eigen locatie. Vanaf die eigen referentie kan Home Assistant bepalen of de ontvangst normaal is, lager dan normaal of sterk verzwakt. Daardoor kan het systeem per sensor signaleren wanneer de ontvangstkwaliteit duidelijk afwijkt van de gebruikelijke situatie.
 
 
 The integration connects to the SmartAlarm cloud service and provides alarm control, event history, device states, signal strength monitoring, signal diagnostics, and a logical SmartAlarm fire-alarm status.
