@@ -8,6 +8,16 @@ Daarnaast worden de afzonderlijke SmartAlarm-apparaten als losse Home Assistant-
 
 ## Nederlandse beschrijving
 
+Waarom deze integratie?
+
+SmartAlarm is een Nederlands alarmsysteem. Ik heb deze integratie oorspronkelijk ontwikkeld omdat ik mijn eigen SmartAlarm-systeem uitgebreider wilde kunnen gebruiken in Home Assistant.
+
+Er zijn andere mogelijkheden om SmartAlarm met Home Assistant te koppelen, bijvoorbeeld via IFTTT. In de praktijk kan dit echter omslachtig zijn. Ook zijn er mogelijkheden waarbij vooral de alarmstatus beschikbaar is, terwijl de afzonderlijke SmartAlarm-sensoren niet rechtstreeks in Home Assistant kunnen worden gebruikt.
+
+Deze integratie maakt juist de afzonderlijke SmartAlarm-apparaten en sensoren rechtstreeks beschikbaar in Home Assistant. Hierdoor kunnen onder andere deur- en raamcontacten, bewegingsmelders en rook-, hitte- en CO-melders afzonderlijk worden gebruikt in automatiseringen, meldingen en andere Home Assistant-logica.
+
+Ik heb de integratie eerst voor mijn eigen installatie ontwikkeld en uitgebreid getest. Nu deze goed werkt, stel ik hem beschikbaar voor andere SmartAlarm-gebruikers die hun systeem met Home Assistant willen gebruiken.
+
 **SmartAlarm voor Home Assistant** is een onafhankelijke integratie voor het Nederlandse SmartAlarm-platform. De integratie haalt de actuele alarmstatus en apparaatgegevens uit SmartAlarm en maakt deze beschikbaar in Home Assistant.
 
 Naast de bediening van de alarmcentrale biedt de integratie per ondersteund apparaat onder meer:
