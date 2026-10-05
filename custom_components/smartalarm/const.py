@@ -9,9 +9,9 @@ STATE_HOME = "home"
 STATE_DISARM = "disarm"
 
 STATE_NAMES = {
-    STATE_AWAY: "Alarm aan",
-    STATE_HOME: "Alarm thuis aan",
-    STATE_DISARM: "Alarm uit",
+    STATE_AWAY: "Aan",
+    STATE_HOME: "Thuis",
+    STATE_DISARM: "Uit",
 }
 
 SIGNAL_CALIBRATION_SAMPLES = 10

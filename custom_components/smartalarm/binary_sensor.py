@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -84,11 +85,27 @@ def _device_by_id(devices, device_id):
     return None
 
 
-def _device_state(fast_data, device_id):
-    device = _device_by_id((fast_data or {}).get("devices", []), device_id)
+def _device_state(data, device_id):
+    """Return the current device state from the live SmartAlarm data."""
+    devices = data.get("devices", []) if isinstance(data, dict) else data
+    device = _device_by_id(devices, device_id)
     if device:
-        return str(device.get("state") or "").casefold()
+        return str(device.get("state") or "").strip().casefold()
     return ""
+
+
+def _latest_contact_state(events, device_id):
+    """Fallback state from the newest persisted/live contact event."""
+    ordered = sorted(events or [], key=_event_sort_key, reverse=True)
+    for event in ordered:
+        if not _event_matches_device(event, device_id):
+            continue
+        text = _event_text(event)
+        if "is nu open" in text or "deur is open" in text or "raam is open" in text or "serre is open" in text:
+            return True
+        if "is nu dicht" in text or "deur is dicht" in text or "raam is dicht" in text or "serre is dicht" in text:
+            return False
+    return None
 
 
 def _event_text(event: dict) -> str:
@@ -357,14 +374,60 @@ class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
             "panel": BinarySensorDeviceClass.CONNECTIVITY,
         }.get(kind_name)
         self._restored_is_on: bool | None = None
+        self._motion_active = False
+        self._motion_handle = None
+        self._seen_motion_events: set[str] = set()
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
+        # Live device states are supplied by the main SmartAlarm coordinator.
+        # CoordinatorEntity already refreshes this entity when new data arrives.
+        if self._kind == "motion":
+            # Seed the event IDs at startup so old cached motion is never replayed.
+            for event in ((self.fast.data or {}).get("events") or []):
+                self._seen_motion_events.add(self._motion_event_key(event))
+            self.async_on_remove(self.fast.async_add_listener(self._motion_coordinator_updated))
+            return
         if self._kind not in ("door", "window"):
             return
         state = await self.async_get_last_state()
         if state and state.state in ("on", "off", "open", "closed"):
             self._restored_is_on = state.state in ("on", "open")
+
+    @staticmethod
+    def _motion_event_key(event):
+        return "|".join(str(event.get(key) or "") for key in ("id", "created_at", "message", "device_id"))
+
+    def _motion_coordinator_updated(self):
+        if self._kind != "motion":
+            return
+        events = (self.fast.data or {}).get("events") or []
+        fresh_motion = False
+        for event in events:
+            key = self._motion_event_key(event)
+            if key in self._seen_motion_events:
+                continue
+            self._seen_motion_events.add(key)
+            message = str(event.get("message") or "").casefold()
+            try:
+                event_device_id = int(event.get("device_id"))
+            except (TypeError, ValueError):
+                continue
+            if event_device_id == self._device_id and "beweging gedetecteerd" in message:
+                fresh_motion = True
+        if len(self._seen_motion_events) > 200:
+            self._seen_motion_events = set(list(self._seen_motion_events)[-100:])
+        if fresh_motion:
+            self._motion_active = True
+            if self._motion_handle:
+                self._motion_handle()
+            self._motion_handle = async_call_later(self.hass, 0.5, self._clear_motion)
+            self.async_write_ha_state()
+
+    def _clear_motion(self, _now):
+        self._motion_active = False
+        self._motion_handle = None
+        self.async_write_ha_state()
 
     @property
     def name(self):
@@ -375,18 +438,27 @@ class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
     def is_on(self):
         if self._kind in FIRE_KINDS:
             return _latest_fire_state((self.fast.data or {}).get("history", []), self._device_id)
-        state = _device_state(self.fast.data, self._device_id)
+        live_data = self.fast.data or {}
+        state = _device_state(live_data, self._device_id)
         if self._kind == "panel":
             if state in ("offline", "unavailable", "disconnected"):
                 return False
             return True
         if self._kind == "motion":
-            return state in ("trigger", "open", "on", "alarm")
+            return self._motion_active
         if self._kind in ("door", "window"):
+            # The live SmartAlarm device state is authoritative whenever it is
+            # actually available. During startup the API can temporarily omit
+            # device state; in that case use the newest event/history as the
+            # second source so a change that happened during the HA reboot is
+            # not lost.
             if state in ("open", "trigger", "on", "alarm"):
                 return True
             if state in ("closed", "normal", "off", "clear"):
                 return False
+            fallback = _latest_contact_state(live_data.get("history", []), self._device_id)
+            if fallback is not None:
+                return fallback
             return self._restored_is_on if self._restored_is_on is not None else False
         return state in ("trigger", "alarm", "on", "open")
 
