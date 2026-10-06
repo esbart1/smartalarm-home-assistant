@@ -3,7 +3,7 @@
 
 All notable changes to this project are documented in this file.
 
-## 0.4.9 - Release candidate
+## 0.4.9 
 
 ### Added
 - Added improved event storage and recovery handling.
