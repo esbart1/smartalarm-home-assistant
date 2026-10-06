@@ -1,4 +1,4 @@
-name: Validate FP4All Local
+name: smartalarm-home-assistant
 
 on:
   push:
