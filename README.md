@@ -44,19 +44,6 @@ A Home Assistant custom integration for **SmartAlarm** systems.
 
 This integration connects SmartAlarm directly to Home Assistant and exposes the alarm panel and individual SmartAlarm devices as Home Assistant entities.
 
-## Features
-
-- Alarm panel with the SmartAlarm alarm status.
-- Individual door and window contact sensors.
-- Motion sensors.
-- Smoke and heat detectors.
-- Battery/status information where provided by SmartAlarm.
-- Event messages shown in Home Assistant.
-- Sensor states are updated from the current SmartAlarm device status.
-- Recent event information is retained so useful information can be restored after a Home Assistant restart.
-- Motion events are treated as temporary events and are not stored in the event cache.
-- Up to 200 relevant recent events are retained in the local event cache.
-- The integration creates the SmartAlarm devices and their associated entities automatically.
 
 ## Version 0.4.9
 
