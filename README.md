@@ -49,7 +49,7 @@ The integration connects to the SmartAlarm cloud service and provides alarm cont
 - De teksten in het SmartAlarm-paneel zijn compacter en duidelijker gemaakt.
 - Alarmstatussen gebruiken korte teksten zoals `Aan`, `Thuis` en `Uit`.
 
-Version **0.4.8** 
+#  Version **0.4.8** 
 The signal thresholds are now configurable Home Assistant number entities with sliders.
 
 Included functionality:
