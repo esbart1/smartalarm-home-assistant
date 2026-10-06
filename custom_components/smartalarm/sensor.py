@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import re
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers import entity_registry as er
@@ -85,7 +86,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     entities = [
         SmartAlarmStatusSensor(coordinator, entry),
-        SmartAlarmLastEventSensor(coordinator, entry),
+        SmartAlarmLastEventSensor(coordinator, devices, entry),
     ]
     known: set[int] = set()
     for device in devices.data or []:
@@ -145,21 +146,77 @@ class SmartAlarmLastEventSensor(CoordinatorEntity, SensorEntity):
     _attr_name = "SmartAlarm laatste melding"
     _attr_icon = "mdi:bell"
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator, devices, entry):
         super().__init__(coordinator)
+        self.devices = devices
         self._attr_unique_id = f"{entry.entry_id}_last_event"
+
+    @staticmethod
+    def _sort_key(event):
+        try:
+            event_id = int(event.get("id") or 0)
+        except (TypeError, ValueError):
+            event_id = 0
+        return str(event.get("created_at") or ""), event_id
+
+    def _latest_event(self):
+        data = self.coordinator.data or {}
+        events = data.get("events") or []
+        if events:
+            return sorted(events, key=self._sort_key, reverse=True)[0]
+        history = data.get("history") or []
+        return sorted(history, key=self._sort_key, reverse=True)[0] if history else {}
+
+    def _format_message(self, event):
+        message = str(event.get("message") or "").strip()
+        if not message:
+            message = "Onbekende melding"
+
+        # Keep alarm-mode notifications compact, with the person first.
+        lowered = message.casefold()
+        if "door" in lowered and ("ingeschakeld" in lowered or "uitgeschakeld" in lowered):
+            person = message.rsplit("door", 1)[-1].strip(" .:-")
+            if person:
+                if "uitgeschakeld" in lowered:
+                    return f"{person} — Uit"
+                return f"{person} — {'Thuis' if ('thuis' in lowered or 'home' in lowered) else 'Aan'}"
+
+        # For device events, put the device name before the event text.
+        try:
+            device_id = int(event.get("device_id"))
+        except (TypeError, ValueError):
+            device_id = None
+        if device_id is not None:
+            name = _device_name(self.devices.data, device_id, "").strip()
+            if name:
+                match = re.search(re.escape(name), message, re.IGNORECASE)
+                if match:
+                    message = (message[:match.start()] + message[match.end():]).strip(" \t:-—,.;")
+                # Motion notifications already identify the sensor in the
+                # prefix, so keep the message compact and remove the
+                # redundant "door" wording.
+                if message.casefold().startswith("beweging gedetecteerd door"):
+                    message = "Beweging gedetecteerd"
+                elif message.casefold() == "beweging gedetecteerd":
+                    message = "Beweging gedetecteerd"
+                if message:
+                    return f"{name} — {message}"
+                return name
+
+        return message
 
     @property
     def native_value(self):
-        history = (self.coordinator.data or {}).get("history", [])
-        return str(history[0].get("message") or "Onbekende melding") if history else "Geen meldingen"
+        event = self._latest_event()
+        return self._format_message(event) if event else "Geen meldingen"
 
     @property
     def extra_state_attributes(self):
-        history = (self.coordinator.data or {}).get("history", [])
-        latest = history[0] if history else {}
+        latest = self._latest_event()
+        data = self.coordinator.data or {}
+        events = data.get("events") or data.get("history") or []
         return {
-            "event_count": len(history),
+            "event_count": len(events),
             "laatste_event_id": latest.get("id"),
             "laatste_event_tijd": latest.get("created_at"),
             "laatste_event_device_id": latest.get("device_id"),

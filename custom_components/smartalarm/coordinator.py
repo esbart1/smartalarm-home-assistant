@@ -75,28 +75,11 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @classmethod
     def _is_significant_event(cls, event: dict[str, Any]) -> bool:
-        """Keep security-relevant events; ordinary sensor chatter belongs in HA Recorder."""
+        """Persist all useful events except frequent, short-lived motion events."""
         text = cls._event_text(event)
-
-        if event.get("device_id") is None:
-            return True
-
-        if "sabotage" in text or "tamper" in text:
-            return True
-
-        if any(term in text for term in (
-            "brand", "rook", "hitte", "smoke", "fire",
-            "koolmonoxide", "koolstofmonoxide", "co-melding", "co melding",
-        )):
-            return True
-
-        if any(term in text for term in (
-            "inbraak", "intrusion", "alarm geactiveerd",
-            "alarm afgegaan", "alarm triggered", "trigger",
-        )):
-            return True
-
-        return False
+        if "beweging gedetecteerd" in text or "bewegingsmelder" in text:
+            return False
+        return True
 
 
     async def _async_update(self) -> dict[str, Any]:
@@ -133,5 +116,26 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self.hass.async_add_executor_job(self._write_history)
             except Exception as err:
                 _LOGGER.warning("SmartAlarm gebeurtenissencache schrijven mislukt: %s", err)
-        parsed["history"] = self._history
+        # Keep current API events in memory for live motion/intrusion handling,
+        # but only persist the filtered history to disk.
+        live_by_key = {
+            (
+                str(e.get("created_at") or ""),
+                str(e.get("id") or ""),
+                str(e.get("message") or ""),
+                str(e.get("device_id") or ""),
+            ): e
+            for e in self._history
+        }
+        for event in parsed.get("events", []):
+            key = (
+                str(event.get("created_at") or ""),
+                str(event.get("id") or ""),
+                str(event.get("message") or ""),
+                str(event.get("device_id") or ""),
+            )
+            live_by_key[key] = event
+        parsed["history"] = sorted(
+            live_by_key.values(), key=self._sort_key, reverse=True
+        )[: self._history_max_events]
         return parsed

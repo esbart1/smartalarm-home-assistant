@@ -183,6 +183,21 @@ class SmartAlarmApi:
     def _parse(self, data: dict[str, Any]) -> dict[str, Any]:
         state = None
         events: list[dict[str, Any]] = []
+        devices: list[dict[str, Any]] = []
+
+        def add_devices(items: Any) -> None:
+            if not isinstance(items, list):
+                return
+            for device in items:
+                if not isinstance(device, dict) or device.get("id") is None:
+                    continue
+                devices.append({
+                    "id": device.get("id"),
+                    "name": device.get("name"),
+                    "signal_strength": device.get("rssi", device.get("signal_strength")),
+                    "state": device.get("state"),
+                    "device_type_id": device.get("device_type_id"),
+                })
 
         def walk(obj: Any) -> None:
             nonlocal state, events
@@ -193,7 +208,9 @@ class SmartAlarmApi:
                         if value in (STATE_AWAY, STATE_HOME, STATE_DISARM):
                             state = value
                 if isinstance(obj.get("events"), list):
-                    events = obj["events"]
+                    events.extend(obj["events"])
+                if isinstance(obj.get("devices"), list):
+                    add_devices(obj["devices"])
                 for value in obj.values():
                     walk(value)
             elif isinstance(obj, list):
@@ -201,6 +218,7 @@ class SmartAlarmApi:
                     walk(value)
 
         walk(data)
+
         clean_events = [
             {
                 "id": event.get("id"),
@@ -212,7 +230,17 @@ class SmartAlarmApi:
             for event in events
             if isinstance(event, dict)
         ]
-        return {"state": state, "events": clean_events, "raw": data}
+
+        unique_devices: dict[str, dict[str, Any]] = {}
+        for device in devices:
+            unique_devices[str(device["id"])] = device
+
+        return {
+            "state": state,
+            "events": clean_events,
+            "devices": list(unique_devices.values()),
+            "raw": data,
+        }
 
     async def async_set_state(self, state: str) -> dict[str, Any]:
         if state not in (STATE_AWAY, STATE_HOME, STATE_DISARM):

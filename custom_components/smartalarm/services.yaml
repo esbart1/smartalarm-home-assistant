@@ -1,0 +1,30 @@
+set_signal_test:
+  name: Signaal diagnose testen
+  description: Tijdelijk een diagnosewaarde simuleren voor één SmartAlarm-apparaat. De echte SmartAlarm-data en cache worden niet gewijzigd.
+  fields:
+    device_id:
+      name: SmartAlarm apparaat-ID
+      description: Het numerieke SmartAlarm apparaat-ID, bijvoorbeeld 20474.
+      required: true
+      example: 20474
+      selector:
+        number:
+          min: 1
+          max: 99999999
+          mode: box
+    mode:
+      name: Teststand
+      description: Kies een diagnose om tijdelijk te tonen. Kies Uit om terug te keren naar de echte waarde.
+      required: true
+      selector:
+        select:
+          options:
+            - uit
+            - normaal
+            - lager
+            - sterk_verzwakt
+            - dalende_trend
+            - lager_dalend
+            - sterk_dalend
+            - geen_recent_signaal
+            - nog_niet_gekalibreerd
