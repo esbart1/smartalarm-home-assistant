@@ -1,79 +1,37 @@
 # Changelog
 
-## 0.4.9 - testversie
+All notable changes to this project are documented in this file.
 
-- Verbeterde verwerking van deur- en raambinary sensors na een Home Assistant-herstart.
-- Actuele SmartAlarm-apparatenstatus is de primaire bron voor contactstatus.
-- Opgeslagen relevante gebeurtenis is een tijdelijke tweede bron wanneer actuele apparaatdata nog niet beschikbaar is.
-- Bewegingsmelders vallen na 500 ms terug naar `Niet gedetecteerd`.
-- Bewegingsmeldingen worden niet meer persistent opgeslagen.
-- Cache beperkt tot maximaal 200 relevante gebeurtenissen.
-- Compactere en duidelijkere meldingen.
-- Korte alarmstatussen: `Aan`, `Thuis`, `Uit`.
+## 0.4.9 - Release candidate
 
-## 0.4.7
+### Added
+- Added improved event storage and recovery handling.
+- Added Home Assistant service definitions and translations.
+- Added support for retaining relevant recent SmartAlarm events after a restart.
 
-Small UI and entity-behavior fixes.
+### Changed
+- Improved synchronization of individual binary sensors with the current SmartAlarm device status.
+- Current live SmartAlarm device status now takes priority over cached event information.
+- Cached event information is used as a startup fallback until current device status is available.
+- Motion sensors now return to `off` automatically after a short detection period.
+- Motion events are no longer stored in the persistent event cache.
+- Event cache size is limited to 200 relevant events.
+- Improved alarm-panel and event message formatting.
+- Improved sensor and entity creation.
+- Updated integration metadata for version 0.4.9.
 
-- The normal signal threshold uses the same reliable signal icon as the signal-strength entity.
-- Binary sensor device classes are assigned before entity registration, so movement sensors use the correct Home Assistant motion semantics and display states accordingly.
-- The existing event-cache implementation remains in `coordinator.py`; the older standalone `event_store.py` design is no longer used.
+### Fixed
+- Fixed individual door/window binary sensors not always reflecting the latest SmartAlarm status.
+- Fixed motion sensors remaining active after a motion event or restart.
+- Fixed cached event information being able to override the current device state.
+- Fixed inconsistent event information after Home Assistant restarts.
 
-## 0.4.6
-
-Cosmetic branding update.
-
-- Added a custom SmartAlarm integration icon under `custom_components/smartalarm/brand/icon.png`.
-- Added a Dutch integration description to the README.
-
-## 0.4.5
-
-Compact event-cache and state-restoration update.
-
-- Ordinary motion and door/window state events are no longer persisted in `smartalarm_events.json`.
-- Security-relevant alarm, intrusion, tamper, fire and CO events remain persisted.
-- The event cache is limited to 200 significant events.
-- Old non-significant events are pruned from the cache on a successful load.
-- The intrusion binary sensor and door/window binary sensors can restore their last known Home Assistant state while current SmartAlarm data is not yet available.
-- The last-event sensor no longer duplicates the complete event cache in its state attributes.
-
-## 0.4.4
-
-Signal threshold sliders are shown as normal device controls, matching the v40 layout, while remaining adjustable percentage sliders.
-
-## 0.4.3
-
-Test build that moves the per-device signal threshold settings from read-only sensors to configurable Home Assistant number entities with sliders.
-
-- `Signaalgrens normaal` is now an adjustable percentage of the calibrated reference.
-- `Signaalgrens waarschuwing` is now an adjustable percentage of the calibrated reference.
-- The calculated threshold in dB remains available as an entity attribute.
-- The existing calibration and threshold storage in `smartalarm_signal.json` is preserved.
-
-## 0.4.2
-
-Test release following the first clean GitHub installation.
-
-- Restored the working SmartAlarm alarm control panel with away, home and disarm controls and the correct alarm-panel device.
-- Restored the SmartAlarm control-panel device discovery from the authenticated device inventory.
-- Restored the two per-device signal threshold entities: normal and warning.
-- Smoke and CO alarm detection now follows explicit fire/CO alarm events instead of generic `open`/`on` device states.
-- Smoke, heat and CO entities remain linked to the SmartAlarm fire-alarm panel.
-- Improved authenticated HTML device-page parsing of signal values.
-- Kept persistent calibration protection and event/signal history handling from 0.4.1.
-
-## 0.4.1
-
-First GitHub release candidate based on the tested SmartAlarm development build.
-
-- Alarm control: away, home and disarmed
-- Persistent SmartAlarm event history
-- Persistent per-device signal measurements and hourly history
-- Manual signal calibration with 10 valid measurements and a 30-minute timeout
-- Signal status, signal calibration state and signal diagnosis
-- Configurable normal/warning signal thresholds
-- Persistent device identity based on the SmartAlarm device ID
-- SmartAlarm alarm panel and SmartAlarm fire-alarm panel
-- Smoke, heat and CO device handling
-- Dutch and English config-flow translations
-- Protection against losing an existing signal calibration during cache errors or normal reloads
+### Testing
+- Tested from a clean installation directly from the GitHub `test-0.4.9` branch.
+- Verified alarm panel and individual sensor creation.
+- Verified 12 SmartAlarm devices/panels and 105 Home Assistant entities in the test installation.
+- Verified door/window state changes.
+- Verified motion reset behavior.
+- Verified motion events are excluded from the persistent event cache.
+- Verified state recovery after restart.
+- Verified state changes occurring around a restart.
