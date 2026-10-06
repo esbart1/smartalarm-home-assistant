@@ -1,5 +1,3 @@
-# SmartAlarm Home Assistant
-
 # SmartAlarm Home Assistant integration
 
 Nederlandse Home Assistant-integratie voor SmartAlarm.
