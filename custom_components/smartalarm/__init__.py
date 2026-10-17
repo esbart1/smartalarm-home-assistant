@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import importlib
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
@@ -31,9 +34,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device_coordinator": device_coordinator,
         "signal_store": signal_store,
     }
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    return True
 
+    await asyncio.gather(*[
+        hass.async_add_import_executor_job(
+            importlib.import_module,
+            f"{__package__}.{platform}",
+        )
+        for platform in PLATFORMS
+    ])
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = hass.data[DOMAIN].pop(entry.entry_id)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from homeassistant.helpers import device_registry as dr
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_call_later
@@ -338,6 +339,7 @@ class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
         super().__init__(fast)
         self.fast = fast
         self.dc = dc
+        self._config_entry_id = entry.entry_id
         self._device_id = device_id
         self._device_name = name.strip() or str(device_id)
         self._attr_unique_id = f"{entry.entry_id}_device_{device_id}_{suffix}"
@@ -356,10 +358,17 @@ class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
             "manufacturer": "SmartAlarm",
             "model": "SmartAlarm apparaat",
         }
-        if kind(self._device_name) in FIRE_KINDS:
-            info["via_device_id"] = (DOMAIN, f"fire_panel_{BASE_ID}")
-        return DeviceInfo(**info)
 
+        if kind(self._device_name) in FIRE_KINDS:
+            registry = dr.async_get(self.hass)
+            parent = registry.async_get_device_by_identifier(
+                (DOMAIN, f"fire_panel_{BASE_ID}"),
+                self._config_entry_id,
+            )
+
+            if parent:
+                info["via_device_id"] = parent.id
+        return DeviceInfo(**info)
 
 class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
     def __init__(self, fast, dc, entry, device_id, kind_name, name):
@@ -417,17 +426,20 @@ class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
                 fresh_motion = True
         if len(self._seen_motion_events) > 200:
             self._seen_motion_events = set(list(self._seen_motion_events)[-100:])
+
         if fresh_motion:
             self._motion_active = True
             if self._motion_handle:
                 self._motion_handle()
-            self._motion_handle = async_call_later(self.hass, 0.5, self._clear_motion)
-            self.async_write_ha_state()
+            self._motion_handle = async_call_later(
+                self.hass, 0.5, self._clear_motion
+            )
+            self.schedule_update_ha_state()
 
     def _clear_motion(self, _now):
         self._motion_active = False
         self._motion_handle = None
-        self.async_write_ha_state()
+        self.schedule_update_ha_state()
 
     @property
     def name(self):
