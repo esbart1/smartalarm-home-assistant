@@ -1,7 +1,22 @@
 # Changelog
 
-
 All notable changes to this project are documented in this file.
+
+## 0.4.11
+
+### Changed
+- Updated SmartAlarm device linking to use the current Home Assistant device registry approach for fire-related devices.
+- Improved compatibility with current Home Assistant entity and device handling.
+- Updated integration setup to address blocking platform-import warnings.
+
+### Fixed
+- Fixed an indentation issue in `binary_sensor.py` that prevented the integration from loading correctly.
+- Improved the handling of individual SmartAlarm device entities and their association with the fire-alarm panel.
+
+### Testing
+- Verified that Home Assistant starts successfully after correcting the binary sensor indentation.
+- Verified that smoke and CO sensors appear in Home Assistant.
+- Verified the integration with the local Home Assistant installation.
 
 ## 0.4.9 
 
