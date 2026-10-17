@@ -357,7 +357,7 @@ class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
             "model": "SmartAlarm apparaat",
         }
         if kind(self._device_name) in FIRE_KINDS:
-            info["via_device"] = (DOMAIN, f"fire_panel_{BASE_ID}")
+            info["via_device_id"] = (DOMAIN, f"fire_panel_{BASE_ID}")
         return DeviceInfo(**info)
 
 
