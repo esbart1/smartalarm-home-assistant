@@ -2,4 +2,4 @@
 
 SmartAlarm custom integration for Home Assistant.
 
-Version 0.4.9 is currently a test release.
+**Version 0.4.11** is the current development version, building on version 0.4.10 prepared for HACS.
