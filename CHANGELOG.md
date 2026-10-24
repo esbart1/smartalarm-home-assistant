@@ -1,5 +1,63 @@
 # Changelog
 
+# SmartAlarm 0.4.15 — releasecontrole
+
+## Uitgangspunt
+
+De releasekandidaat is gebaseerd op `smartalarm0.4.15.zip`, de versie die op de productie- en testinstallatie staat. De werkende alarmbediening en de alarm-/sabotagelogica zijn niet aangepast. De UTC-logaanpassing is niet opgenomen.
+
+## Uitgevoerde controles
+
+- `manifest.json` bevat versie `0.4.15`.
+- Alle Python-bestanden zijn syntactisch parseerbaar.
+- Alle JSON-bestanden zijn geldig.
+- Er zitten geen `__pycache__`-mappen of `.pyc`-bestanden in de ZIP.
+- Er is geen uitvoerbare hardcoded basisstation-ID gevonden; `1429` komt alleen voor in een voorbeeldcommentaar bij het uitlezen van HTML.
+- Het basisstation-ID wordt eerst uit `/json/bases/me` gehaald, met een dashboardfallback.
+- De alarmcentrale en apparaatidentificaties gebruiken het dynamische basisstation-ID.
+- Eventhistorie en signaalkalibratie gebruiken Home Assistant `Store`-opslag.
+- `event_store.py` en `services.yaml` ontbreken; er zijn geen verwijzingen gevonden naar `set_signal_test` of `EVENT_CACHE_MAX`.
+- De kandidaat met tekstverbeteringen wijzigt alleen `strings.json`, `translations/en.json` en `translations/nl.json`; Python-code is identiek aan de aangeleverde ZIP.
+- De nieuwe vertalingen bevatten de configuratiestap `reauth_confirm`, de melding `invalid_auth` en de afsluitreden `reauth_successful`, passend bij de bestaande configuratiecode.
+
+## Wat nog niet door deze controle bewezen is
+
+- Een echte SmartAlarm-login is niet opnieuw uitgevoerd in deze controle; de praktijkproeven op productie en test blijven de bestaande testbewijzen.
+- Een mislukte login of verlopen sessie is niet live gesimuleerd in een Home Assistant-testomgeving.
+- HACS Action en Hassfest moeten tegen de definitieve commit/releasebron opnieuw groen zijn.
+- De GitHub-README en CHANGELOG zijn online nog niet bijgewerkt. De publieke README toont nog 0.4.11 en bevat een verouderde omschrijving van de cachelocatie.
+
+## Aanbevolen README-informatie
+
+### Inloggen en opnieuw inloggen
+
+Voeg SmartAlarm toe via Instellingen → Apparaten en diensten → Integratie toevoegen → SmartAlarm. Gebruik het e-mailadres en wachtwoord van een SmartAlarm-account dat toegang heeft tot de alarmcentrale.
+
+De integratie meldt zich aan via de SmartAlarm-webomgeving en gebruikt de verkregen sessie voor status-, gebeurtenis- en apparaatgegevens en voor de bediening van het alarmsysteem. Als SmartAlarm de sessie niet meer accepteert, probeert de integratie opnieuw in te loggen. Als SmartAlarm de opgeslagen inloggegevens afwijst, kan Home Assistant vragen om opnieuw in te loggen via de integratie.
+
+Het basisstation-ID wordt uit de accountgegevens opgehaald; de gebruiker hoeft dit niet zelf in te voeren.
+
+### Teststatus
+
+Versie 0.4.15 is door de ontwikkelaar getest met drie verschillende SmartAlarm-gebruikersaccounts en wachtwoorden. Ook zijn twee Home Assistant-installaties getest die hetzelfde basisstation gebruiken met verschillende accounts. Op beide installaties zijn herstarts en het in- en uitschakelen van het alarm getest. Dit beschrijft de daadwerkelijk geteste accounts en configuraties; niet iedere mogelijke accountconfiguratie is getest.
+
+### Opslag
+
+De integratie bewaart relevante gebeurtenishistorie en signaalkalibratie met de opslagvoorziening van Home Assistant (`Store`). Deze gegevens worden niet meer in de integratiemap opgeslagen en horen bij normale HACS-updates behouden te blijven.
+
+## Changelog-kandidaat 0.4.15
+
+- Voorkomen dat lage-batterijmeldingen als brand- of CO-alarm worden geïnterpreteerd.
+- Brand-, CO- en sabotagestatus afzonderlijk per melder verwerken en ondersteunde herstelmeldingen afhandelen.
+- Het basisstation-ID dynamisch uit de aangemelde SmartAlarm-accountgegevens ophalen in plaats van een vast ID te gebruiken.
+- Afgewezen inloggegevens via Home Assistant-herauthenticatie afhandelen.
+- Gebeurtenishistorie en signaalkalibratie opslaan via Home Assistant `Store`.
+- Ongebruikte integratiecode en niet-geregistreerde serviceverwijzingen verwijderen.
+- Getest met drie SmartAlarm-accounts en twee Home Assistant-installaties met afzonderlijke accounts op hetzelfde basisstation.
+
+Controleer de changelog nog tegen de definitieve broncode voordat de release wordt gepubliceerd.
+
+
 All notable changes to this project are documented in this file.
 
 ## 0.4.11
