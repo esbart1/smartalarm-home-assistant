@@ -1,4 +1,26 @@
 # Changelog
+## 0.4.15
+
+### Fixed
+
+- Fixed low-battery notifications being incorrectly interpreted as fire or CO alarms.
+- Improved independent fire and CO alarm state handling for individual detectors.
+- Fire and CO alarm states are cleared when the SmartAlarm intrusion system is disarmed.
+- Improved tamper detection and recovery handling for individual detectors.
+- Tamper states can be cleared by explicit recovery events or after a completed calibration confirms that the same detector has returned to a safe state.
+
+### Changed
+
+- Retrieve the SmartAlarm base station ID dynamically instead of relying on a hardcoded ID.
+- Use Home Assistant's storage mechanism for persistent event and signal calibration data.
+- Improve authentication error handling and the re-authentication flow.
+- Remove unused code and clean up the integration package.
+
+### Testing
+
+- Tested with three different SmartAlarm user accounts and passwords.
+- Tested arming and disarming on production and test Home Assistant installations using different accounts connected to the same SmartAlarm base station.
+- Verified that sensor entities and calibration data remain available after Home Assistant restarts.
 
 
 ## 0.4.11
