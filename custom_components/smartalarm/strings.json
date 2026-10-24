@@ -11,7 +11,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Inloggen bij SmartAlarm is mislukt."
+      "cannot_connect": "Inloggen bij SmartAlarm is mislukt.",
+      "invalid_auth": "De SmartAlarm inloggegevens zijn ongeldig."
     }
   }
 }

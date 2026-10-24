@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import logging
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import SmartAlarmApi
@@ -21,14 +21,15 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, api: SmartAlarmApi) -> None:
         super().__init__(hass, _LOGGER, name="SmartAlarm", update_method=self._async_update, update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL))
         self.api = api
-        self.history_path = Path(hass.config.path("custom_components", DOMAIN, "alarm_cache", "smartalarm_events.json"))
+        self._store = Store(hass, 1, f"{DOMAIN}_{api.email.casefold()}_events")
         self._history: list[dict[str, Any]] = []
         self._history_max_events = 200
         self._history_load_ok = True
 
     async def async_initialize(self) -> None:
         try:
-            loaded = await self.hass.async_add_executor_job(self._read_history)
+            stored = await self._store.async_load()
+            loaded = stored if isinstance(stored, list) else []
         except Exception as err:
             _LOGGER.warning("SmartAlarm gebeurtenissencache lezen mislukt: %s", err)
             self._history_load_ok = False
@@ -38,21 +39,9 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._history = sorted(filtered, key=self._sort_key, reverse=True)[: self._history_max_events]
         if len(filtered) != len(loaded) or len(self._history) != len(filtered):
             try:
-                await self.hass.async_add_executor_job(self._write_history)
+                await self._store.async_save(self._history)
             except Exception as err:
                 _LOGGER.warning("SmartAlarm gebeurtenissencache opschonen mislukt: %s", err)
-
-    def _read_history(self) -> list[dict[str, Any]]:
-        if not self.history_path.exists():
-            return []
-        value = json.loads(self.history_path.read_text(encoding="utf-8"))
-        return value if isinstance(value, list) else []
-
-    def _write_history(self) -> None:
-        self.history_path.parent.mkdir(parents=True, exist_ok=True)
-        temp = self.history_path.with_suffix(".tmp")
-        temp.write_text(json.dumps(self._history, ensure_ascii=False, indent=2), encoding="utf-8")
-        temp.replace(self.history_path)
 
     @staticmethod
     def _sort_key(event: dict[str, Any]) -> tuple[str, int]:
@@ -85,6 +74,8 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update(self) -> dict[str, Any]:
         try:
             parsed = await self.api.async_update()
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:
             raise UpdateFailed(f"SmartAlarm update failed: {err}") from err
 
@@ -113,7 +104,7 @@ class SmartAlarmCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )[: self._history_max_events]
         if parsed.get("events") and self._history_load_ok:
             try:
-                await self.hass.async_add_executor_job(self._write_history)
+                await self._store.async_save(self._history)
             except Exception as err:
                 _LOGGER.warning("SmartAlarm gebeurtenissencache schrijven mislukt: %s", err)
         # Keep current API events in memory for live motion/intrusion handling,

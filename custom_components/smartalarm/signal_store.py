@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 import logging
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
+from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, SIGNAL_CALIBRATION_SAMPLES, SIGNAL_NORMAL_RATIO, SIGNAL_WARNING_RATIO
 
@@ -22,13 +21,13 @@ class SmartAlarmSignalStore:
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self.path = Path(hass.config.path("custom_components", DOMAIN, "alarm_cache", "smartalarm_signal.json"))
+        self._store = Store(hass, 1, f"{DOMAIN}_signal_calibration")
         self._data: dict[str, dict[str, Any]] = {}
         self._load_ok = True
 
     async def async_load(self) -> None:
         try:
-            value = await self.hass.async_add_executor_job(self._read)
+            value = await self._store.async_load()
             self._data = value if isinstance(value, dict) else {}
             self._load_ok = True
         except Exception as err:
@@ -80,25 +79,11 @@ class SmartAlarmSignalStore:
             except Exception as err:
                 _LOGGER.warning("SmartAlarm signaalcache migratie schrijven mislukt: %s", err)
 
-    def _read(self) -> dict[str, Any]:
-        if not self.path.exists():
-            return {}
-        value = json.loads(self.path.read_text(encoding="utf-8"))
-        if not isinstance(value, dict):
-            raise ValueError("SmartAlarm signaalcache is geen object")
-        return value
-
-    def _write(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp = self.path.with_suffix(".tmp")
-        temp.write_text(json.dumps(self._data, ensure_ascii=False, indent=2), encoding="utf-8")
-        temp.replace(self.path)
-
     async def _safe_write(self) -> bool:
         if not self._load_ok:
             _LOGGER.warning("SmartAlarm signaalcache niet gewijzigd omdat de vorige read is mislukt")
             return False
-        await self.hass.async_add_executor_job(self._write)
+        await self._store.async_save(self._data)
         return True
 
     def get(self, device_id: int) -> dict[str, Any]:

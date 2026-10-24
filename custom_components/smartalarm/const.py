@@ -2,7 +2,6 @@ DOMAIN = "smartalarm"
 BASE_URL = "https://mijn.smartalarm.nl"
 DEFAULT_SCAN_INTERVAL = 5
 DEVICE_SCAN_INTERVAL = 30
-BASE_ID = "1429"
 
 STATE_AWAY = "away"
 STATE_HOME = "home"

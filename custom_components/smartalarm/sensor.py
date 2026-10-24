@@ -9,13 +9,13 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import BASE_ID, DOMAIN, SIGNAL_STALE_AFTER_MINUTES, STATE_NAMES
+from .const import DOMAIN, SIGNAL_STALE_AFTER_MINUTES, STATE_NAMES
 from .signal_store import SmartAlarmSignalStore
 
 
-def _base_info() -> DeviceInfo:
+def _base_info(base_id: str) -> DeviceInfo:
     return DeviceInfo(
-        identifiers={(DOMAIN, f"base_{BASE_ID}")},
+        identifiers={(DOMAIN, f"base_{base_id}")},
         name="SmartAlarm alarmpaneel",
         manufacturer="SmartAlarm",
         model="Alarmcentrale",
@@ -139,7 +139,7 @@ class SmartAlarmStatusSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
-        return _base_info()
+        return _base_info(self.coordinator.api.base_id or "unknown")
 
 
 class SmartAlarmLastEventSensor(CoordinatorEntity, SensorEntity):
@@ -224,7 +224,7 @@ class SmartAlarmLastEventSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def device_info(self):
-        return _base_info()
+        return _base_info(self.coordinator.api.base_id or "unknown")
 
 
 class _BaseDeviceSensor(CoordinatorEntity, SensorEntity):

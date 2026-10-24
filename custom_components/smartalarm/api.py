@@ -9,9 +9,16 @@ from typing import Any
 
 import aiohttp
 
-from .const import BASE_ID, BASE_URL, STATE_AWAY, STATE_DISARM, STATE_HOME
+from homeassistant.exceptions import ConfigEntryAuthFailed
+
+from .const import BASE_URL, STATE_AWAY, STATE_DISARM, STATE_HOME
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class SmartAlarmAuthError(Exception):
+    """Raised when SmartAlarm rejects the configured credentials."""
+
 
 
 class SmartAlarmApi:
@@ -22,6 +29,7 @@ class SmartAlarmApi:
         self.password = password
         self.session: aiohttp.ClientSession | None = None
         self.csrf: str | None = None
+        self.base_id: str | None = None
 
     async def _ensure_session(self) -> None:
         if self.session is None or self.session.closed:
@@ -47,7 +55,7 @@ class SmartAlarmApi:
             re.I,
         )
         if not match:
-            raise RuntimeError("CSRF token not found")
+            raise RuntimeError("SmartAlarm loginpagina of CSRF-token niet gevonden")
         self.csrf = match.group(1)
         async with self.session.post(
             f"{BASE_URL}/login",
@@ -55,8 +63,8 @@ class SmartAlarmApi:
             headers={"User-Agent": "Home Assistant SmartAlarm", "Referer": f"{BASE_URL}/login"},
             allow_redirects=True,
         ) as resp:
-            if str(resp.url).endswith("/login"):
-                raise RuntimeError("SmartAlarm login failed")
+            if resp.status in (401, 403) or str(resp.url).rstrip("/").endswith("/login"):
+                raise SmartAlarmAuthError("SmartAlarm heeft de inloggegevens geweigerd")
 
     async def _request(self, method: str, url: str):
         await self._ensure_session()
@@ -70,9 +78,15 @@ class SmartAlarmApi:
         resp = await self.session.request(method, url, headers=headers)
         if resp.status in (401, 419):
             await resp.release()
-            await self.async_login()
+            try:
+                await self.async_login()
+            except SmartAlarmAuthError as err:
+                raise ConfigEntryAuthFailed("SmartAlarm inloggegevens ongeldig; stel de integratie opnieuw in") from err
             headers["X-CSRF-TOKEN"] = self.csrf or ""
             resp = await self.session.request(method, url, headers=headers)
+            if resp.status in (401, 419):
+                await resp.release()
+                raise RuntimeError(f"SmartAlarm sessie kon niet worden vernieuwd (HTTP {resp.status})")
         return resp
 
     async def async_update(self) -> dict[str, Any]:
@@ -81,9 +95,51 @@ class SmartAlarmApi:
             if resp.status >= 400:
                 text = await resp.text()
                 raise RuntimeError(f"SmartAlarm HTTP {resp.status}: {text[:200]}")
-            return self._parse(await resp.json(content_type=None))
+            raw_data = await resp.json(content_type=None)
+            parsed = self._parse(raw_data)
+            base_id = self._extract_base_id(raw_data)
+            if base_id is None:
+                # Some SmartAlarm accounts return a response shape that does not
+                # expose the base as a `bases` collection. The authenticated
+                # dashboard contains the same base ID in its alarm element.
+                base_id = await self._async_get_base_id_from_dashboard()
+            if base_id is not None:
+                self.base_id = str(base_id)
+            elif self.base_id is None:
+                raise RuntimeError(
+                    "SmartAlarm basisstation-ID niet gevonden in /json/bases/me "
+                    "of op de bedieningspagina"
+                )
+            parsed["base_id"] = self.base_id
+            return parsed
         finally:
             await resp.release()
+
+    async def _async_get_base_id_from_dashboard(self) -> str | None:
+        """Read the base ID from the authenticated dashboard's alarm element."""
+        await self._ensure_session()
+        async with self.session.get(
+            f"{BASE_URL}/",
+            headers={"User-Agent": "Home Assistant SmartAlarm", "Accept": "text/html"},
+        ) as resp:
+            if resp.status >= 400:
+                _LOGGER.debug("SmartAlarm dashboard ophalen voor basisstation-ID: HTTP %s", resp.status)
+                return None
+            html = await resp.text()
+        # The dashboard supplied by SmartAlarm uses e.g. class="alarm" data-id="1429".
+        match = re.search(
+            r'<[^>]*class=["\'][^"\']*\balarm\b[^"\']*["\'][^>]*\bdata-id=["\'](\d+)["\']',
+            html,
+            re.I,
+        )
+        if not match:
+            # Attribute order can differ in generated HTML.
+            match = re.search(
+                r'<[^>]*\bdata-id=["\'](\d+)["\'][^>]*class=["\'][^"\']*\balarm\b[^"\']*["\']',
+                html,
+                re.I,
+            )
+        return match.group(1) if match else None
 
     async def async_get_devices(self) -> list[dict[str, Any]]:
         """Read the full authenticated SmartAlarm device inventory."""
@@ -180,6 +236,49 @@ class SmartAlarmApi:
         _LOGGER.debug("SmartAlarm: %d apparaten gevonden", len(unique))
         return unique
 
+    @staticmethod
+    def _extract_base_id(data: Any) -> str | None:
+        """Extract the base ID from the authenticated /json/bases/me response.
+
+        Prefer objects inside a bases collection to avoid confusing sensor IDs
+        with the base ID. Support common API response wrappers.
+        """
+        candidates: list[Any] = []
+
+        def walk(obj: Any) -> None:
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    if key.casefold() in {"bases", "base", "alarm_base", "alarmbase"}:
+                        if isinstance(value, dict):
+                            candidates.append(value)
+                        elif isinstance(value, list):
+                            candidates.extend(item for item in value if isinstance(item, dict))
+                    if isinstance(value, (dict, list)):
+                        walk(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    walk(item)
+
+        walk(data)
+        if isinstance(data, list):
+            candidates.extend(item for item in data if isinstance(item, dict))
+        # If the response itself (or a common `data` wrapper) is a single
+        # base object, accept its ID. Do not search arbitrary nested objects,
+        # because those may be sensor/device IDs rather than the base ID.
+        if isinstance(data, dict) and not candidates:
+            if data.get("id") is not None:
+                candidates.append(data)
+            wrapped = data.get("data")
+            if isinstance(wrapped, dict) and wrapped.get("id") is not None:
+                candidates.append(wrapped)
+            elif isinstance(wrapped, list):
+                candidates.extend(item for item in wrapped if isinstance(item, dict))
+        for item in candidates:
+            value = item.get("id", item.get("base_id", item.get("baseId")))
+            if value is not None and str(value).strip():
+                return str(value).strip()
+        return None
+
     def _parse(self, data: dict[str, Any]) -> dict[str, Any]:
         state = None
         events: list[dict[str, Any]] = []
@@ -248,8 +347,12 @@ class SmartAlarmApi:
         await self._ensure_session()
         if not self.csrf:
             await self.async_login()
+        if not self.base_id:
+            await self.async_update()
+        if not self.base_id:
+            raise RuntimeError("SmartAlarm basisstation-ID is niet bekend")
         resp = await self.session.put(
-            f"{BASE_URL}/bases/{BASE_ID}/state/{state}",
+            f"{BASE_URL}/bases/{self.base_id}/state/{state}",
             headers={
                 "User-Agent": "Home Assistant SmartAlarm",
                 "Accept": "*/*",

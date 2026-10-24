@@ -7,7 +7,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BASE_ID, DOMAIN, STATE_AWAY, STATE_HOME
+from .const import DOMAIN, STATE_AWAY, STATE_HOME
 
 EXCLUDED = ("afstandsbediening",)
 FIRE_KINDS = ("smoke", "co")
@@ -39,18 +39,18 @@ FIRE_TERMS = (
 )
 
 
-def _panel_device_info() -> DeviceInfo:
+def _panel_device_info(base_id: str) -> DeviceInfo:
     return DeviceInfo(
-        identifiers={(DOMAIN, f"base_{BASE_ID}")},
+        identifiers={(DOMAIN, f"base_{base_id}")},
         name="SmartAlarm alarmpaneel",
         manufacturer="SmartAlarm",
         model="Alarmcentrale",
     )
 
 
-def _fire_panel_device_info() -> DeviceInfo:
+def _fire_panel_device_info(base_id: str) -> DeviceInfo:
     return DeviceInfo(
-        identifiers={(DOMAIN, f"fire_panel_{BASE_ID}")},
+        identifiers={(DOMAIN, f"fire_panel_{base_id}")},
         name="SmartAlarm brandalarmpaneel",
         manufacturer="SmartAlarm",
         model="Brandalarm",
@@ -128,11 +128,32 @@ def _event_matches_device(event: dict, device_id: int) -> bool:
 
 
 def _is_fire_alarm_event(event: dict) -> bool:
+    """Return True only for actual fire/CO alarm events, not maintenance alerts."""
     text = _event_text(event)
+
+    # SmartAlarm can mention the detector's name (e.g. "Rook en hitte melder")
+    # in a low-battery notification. Do not interpret that as a fire alarm.
+    low_battery_terms = (
+        "lage batterij",
+        "lage batterijspanning",
+        "batterij bijna op",
+        "batterij bijna leeg",
+        "batterijspanning",
+        "batterij is leeg",
+        "low battery",
+        "battery low",
+        "battery voltage",
+    )
+    if any(term in text for term in low_battery_terms):
+        return False
+
     if any(term in text for term in CLEAR_TERMS):
         return False
     if any(term in text for term in FIRE_TERMS):
-        return any(term in text for term in ("alarm", "melding", "gedetecteerd", "geactiveerd", "trigger", "rook", "brand", "hitte", "co"))
+        return any(term in text for term in (
+            "alarm", "melding", "gedetecteerd", "geactiveerd", "trigger",
+            "rook", "brand", "hitte", "co"
+        ))
     return False
 
 
@@ -141,8 +162,24 @@ def _is_fire_clear_event(event: dict) -> bool:
 
 
 def _latest_fire_state(events, device_id: int) -> bool:
+    """Return the latest fire state, including central-panel disarm events.
+
+    SmartAlarm's central-panel events (for example, intrusion security disabled)
+    have no device_id. They must still be considered as a clear event because
+    the user's SmartAlarm panel clears its latched fire alarm when disarmed.
+    """
     ordered = sorted(events or [], key=_event_sort_key, reverse=True)
     for event in ordered:
+        text = _event_text(event)
+
+        # Central-panel events have device_id=None, so check these before
+        # filtering to the individual smoke/CO detector.
+        if (
+            "inbraakbeveiliging is uitgeschakeld" in text
+            or "alarm uitgeschakeld" in text
+        ):
+            return False
+
         if not _event_matches_device(event, device_id):
             continue
         if _is_fire_clear_event(event):
@@ -192,7 +229,7 @@ class SmartAlarmFirePanelSensor(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def device_info(self):
-        return _fire_panel_device_info()
+        return _fire_panel_device_info(self.coordinator.api.base_id or "unknown")
 
     @property
     def is_on(self):
@@ -227,6 +264,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     dc = data["device_coordinator"]
 
     existing: set[tuple[int, str]] = set()
+    signal_store = data.get("signal_store")
     entities = [SmartAlarmIntrusionSensor(fast, entry), SmartAlarmFirePanelSensor(fast, dc, entry)]
     for device in dc.data or []:
         try:
@@ -237,9 +275,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if not k:
             continue
         existing.add((did, k))
-        entities.append(SmartAlarmBinarySensor(fast, dc, entry, did, k, str(device.get("name") or did)))
+        entities.append(SmartAlarmBinarySensor(fast, dc, entry, did, k, str(device.get("name") or did), signal_store))
         existing.add((did, "tamper"))
-        entities.append(SmartAlarmTamperSensor(fast, dc, entry, did, str(device.get("name") or did)))
+        entities.append(SmartAlarmTamperSensor(fast, dc, entry, did, str(device.get("name") or did), signal_store))
 
     async_add_entities(entities)
 
@@ -256,11 +294,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
             key = (did, k)
             if key not in existing:
                 existing.add(key)
-                new.append(SmartAlarmBinarySensor(fast, dc, entry, did, k, str(device.get("name") or did)))
+                new.append(SmartAlarmBinarySensor(fast, dc, entry, did, k, str(device.get("name") or did), signal_store))
             tamper_key = (did, "tamper")
             if tamper_key not in existing:
                 existing.add(tamper_key)
-                new.append(SmartAlarmTamperSensor(fast, dc, entry, did, str(device.get("name") or did)))
+                new.append(SmartAlarmTamperSensor(fast, dc, entry, did, str(device.get("name") or did), signal_store))
         if new:
             async_add_entities(new)
 
@@ -323,7 +361,7 @@ class SmartAlarmIntrusionSensor(CoordinatorEntity, RestoreEntity, BinarySensorEn
 
     @property
     def device_info(self):
-        return _panel_device_info()
+        return _panel_device_info(self.coordinator.api.base_id or "unknown")
 
     @property
     def extra_state_attributes(self):
@@ -335,13 +373,14 @@ class SmartAlarmIntrusionSensor(CoordinatorEntity, RestoreEntity, BinarySensorEn
 
 
 class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
-    def __init__(self, fast, dc, entry, device_id: int, name: str, suffix: str):
+    def __init__(self, fast, dc, entry, device_id: int, name: str, suffix: str, signal_store=None):
         super().__init__(fast)
         self.fast = fast
         self.dc = dc
         self._config_entry_id = entry.entry_id
         self._device_id = device_id
         self._device_name = name.strip() or str(device_id)
+        self.signal_store = signal_store
         self._attr_unique_id = f"{entry.entry_id}_device_{device_id}_{suffix}"
 
     def _refresh_name(self):
@@ -362,7 +401,7 @@ class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
         if kind(self._device_name) in FIRE_KINDS:
             registry = dr.async_get(self.hass)
             parent = registry.async_get_device_by_identifier(
-                (DOMAIN, f"fire_panel_{BASE_ID}"),
+                (DOMAIN, f"fire_panel_{self.dc.api.base_id or 'unknown'}"),
                 self._config_entry_id,
             )
 
@@ -371,8 +410,8 @@ class _BaseSmartAlarmBinary(CoordinatorEntity, BinarySensorEntity):
         return DeviceInfo(**info)
 
 class SmartAlarmBinarySensor(_BaseSmartAlarmBinary, RestoreEntity):
-    def __init__(self, fast, dc, entry, device_id, kind_name, name):
-        super().__init__(fast, dc, entry, device_id, name, kind_name)
+    def __init__(self, fast, dc, entry, device_id, kind_name, name, signal_store=None):
+        super().__init__(fast, dc, entry, device_id, name, kind_name, signal_store)
         self._kind = kind_name
         self._attr_device_class = {
             "motion": BinarySensorDeviceClass.MOTION,
@@ -479,15 +518,96 @@ class SmartAlarmTamperSensor(_BaseSmartAlarmBinary):
     _attr_device_class = BinarySensorDeviceClass.SAFETY
     _attr_icon = "mdi:shield-alert"
 
-    def __init__(self, fast, dc, entry, device_id, name):
-        super().__init__(fast, dc, entry, device_id, name, "tamper")
+    def __init__(self, fast, dc, entry, device_id, name, signal_store=None):
+        super().__init__(fast, dc, entry, device_id, name, "tamper", signal_store)
+        self._good_refreshes = 0
+        self._tamper_was_active = False
+        self._tamper_latched = False
+        self._last_tamper_event_key = None
+        self._last_calibrated_at = self.signal_store.calibrated_at(device_id) if self.signal_store else None
+        self._remove_signal_listener = self.fast.async_add_listener(self._on_coordinator_update)
 
     @property
     def name(self):
         self._refresh_name()
         return f"{self._device_name} sabotage"
 
+    def _on_coordinator_update(self):
+        """Track recovery per detector. Only this detector's signal/calibration counts."""
+        if not self.signal_store:
+            return
+
+        events = (self.fast.data or {}).get("history", [])
+        ordered = sorted(events or [], key=_event_sort_key, reverse=True)
+        newest_tamper = None
+        for event in ordered:
+            if _event_matches_device(event, self._device_id) and _event_is_tamper(event):
+                newest_tamper = event
+                break
+
+        # Process each device-specific tamper event only once. Older active
+        # history must not restart the counter on every coordinator refresh.
+        event_key = None
+        if newest_tamper:
+            event_key = "|".join(str(newest_tamper.get(k) or "") for k in
+                                 ("id", "created_at", "message", "device_id"))
+        if event_key and event_key != self._last_tamper_event_key:
+            self._last_tamper_event_key = event_key
+            if _event_tamper_cleared(newest_tamper):
+                self._tamper_latched = False
+                self._tamper_was_active = False
+                self._good_refreshes = 0
+                self.schedule_update_ha_state()
+                return
+            self._tamper_latched = True
+            self._tamper_was_active = True
+            self._good_refreshes = 0
+            self.schedule_update_ha_state()
+            return
+
+        # A completed calibration may clear only if SmartAlarm's live device
+        # state is not tamper/alarm/open/trigger.
+        calibrated_at = self.signal_store.calibrated_at(self._device_id)
+        live_state = _device_state(self.fast.data or {}, self._device_id)
+        unsafe = any(term in live_state for term in ("tamper", "sabotage", "alarm", "trigger", "open"))
+        if (
+            self._tamper_latched
+            and calibrated_at
+            and calibrated_at != self._last_calibrated_at
+            and not unsafe
+        ):
+            self._tamper_latched = False
+            self._tamper_was_active = False
+            self._good_refreshes = 0
+            self._last_calibrated_at = calibrated_at
+            self.schedule_update_ha_state()
+            return
+        self._last_calibrated_at = calibrated_at
+
+        # Check only this detector's current radio value against its own normal
+        # threshold. Five consecutive coordinator updates are required.
+        device = _device_by_id(self.dc.data, self._device_id)
+        try:
+            signal = float(device.get("signal_strength")) if device and device.get("signal_strength") is not None else None
+        except (TypeError, ValueError):
+            signal = None
+        threshold = self.signal_store.normal_threshold(self._device_id)
+        if signal is not None and threshold is not None and signal >= threshold and not unsafe:
+            self._good_refreshes += 1
+            if self._tamper_latched and self._good_refreshes >= 5:
+                self._tamper_latched = False
+                self._tamper_was_active = False
+                self._good_refreshes = 0
+        else:
+            self._good_refreshes = 0
+        self.schedule_update_ha_state()
+
     @property
     def is_on(self):
         events = (self.fast.data or {}).get("history", [])
-        return _latest_tamper_state(events, self._device_id)
+        active = _latest_tamper_state(events, self._device_id)
+        # Preserve the original event-derived active state until this entity
+        # has processed its event stream at least once.
+        if active and self._last_tamper_event_key is None:
+            return True
+        return self._tamper_latched
