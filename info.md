@@ -1,5 +1,5 @@
-# SmartAlarm
+# SmartAlarm Home Assistant Integration
 
-SmartAlarm custom integration for Home Assistant.
+Control your SmartAlarm alarm system from Home Assistant and use individual sensors in automations.
 
-**Version 0.4.15** is the current development and is prepared for HACS.
+Features include alarm control, sensor status, signal monitoring, per-sensor calibration and alarm notifications.
