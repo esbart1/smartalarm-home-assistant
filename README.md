@@ -91,6 +91,20 @@ Als SmartAlarm nog niet in de standaardlijst staat, kan de repository eventueel 
 4. Herstart Home Assistant.
 5. Voeg SmartAlarm toe via **Instellingen → Apparaten en diensten**.
 
+
+### SmartAlarm-gebruiker voor Home Assistant
+
+Aanbevolen: Maak een aparte SmartAlarm-gebruiker aan voor Home Assistant.
+
+Een gewone SmartAlarm-gebruiker kan het alarm inschakelen, uitschakelen en op de thuismodus zetten. Beheerdersrechten zijn hiervoor niet nodig.
+
+Alleen een beheerder kan SmartAlarm-gebruikers aanmaken, wijzigen of verwijderen.
+
+Met een aparte gebruiker zijn alarmhandelingen vanuit Home Assistant gemakkelijker herkenbaar in de activiteitenhistorie van SmartAlarm, voor zover deze daarin worden weergegeven.
+
+Maak de gebruiker aan in SmartAlarm en gebruik de bijbehorende inloggegevens bij het configureren van de Home Assistant-integratie.
+
+
 ### Signaalsterkte en kalibratie
 
 Iedere sensor heeft een eigen positie, afstand, bouwmaterialen en lokale omstandigheden. Daarom kan de normale signaalsterkte per sensor verschillen.
@@ -227,6 +241,19 @@ If SmartAlarm is not yet listed in the default repository, the repository may be
 3. Confirm that the files are located in `/config/custom_components/smartalarm/`.
 4. Restart Home Assistant.
 5. Add SmartAlarm through **Settings → Devices & services**.
+
+### SmartAlarm user for Home Assistant
+
+Recommended: Create a dedicated SmartAlarm user for Home Assistant.
+
+A regular SmartAlarm user is sufficient to arm, disarm and switch the alarm to home mode. Administrator permissions are not required for Home Assistant.
+
+Only an administrator can create, edit or remove SmartAlarm users.
+
+Using a separate user makes Home Assistant alarm operations easier to identify in the SmartAlarm activity history, where supported.
+
+Create the user in SmartAlarm and use its credentials when configuring the Home Assistant integration.
+
 
 ### Signal strength and calibration
 
