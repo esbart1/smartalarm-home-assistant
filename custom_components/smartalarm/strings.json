@@ -3,16 +3,27 @@
     "step": {
       "user": {
         "title": "SmartAlarm",
-        "description": "Voer je SmartAlarm inloggegevens in.",
+        "description": "Enter your SmartAlarm login details.",
         "data": {
-          "email": "E-mailadres",
-          "password": "Wachtwoord"
+          "email": "Email address",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate SmartAlarm",
+        "description": "Please enter the password for {email}.",
+        "data": {
+          "password": "Password"
         }
       }
     },
     "error": {
-      "cannot_connect": "Inloggen bij SmartAlarm is mislukt.",
-      "invalid_auth": "De SmartAlarm inloggegevens zijn ongeldig."
+      "cannot_connect": "Login to SmartAlarm failed.",
+      "invalid_auth": "Email address and password do not match."
+    },
+    "abort": {
+      "reauth_successful": "SmartAlarm was successfully re-authenticated.",
+      "already_configured": "This SmartAlarm account is already configured."
     }
   }
 }
