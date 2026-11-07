@@ -1,7 +1,7 @@
 # Changelog
 
 
-## [0.1.16] - 2026-11-07
+## [0.4.16] - 2026-11-07
 
 ### Fixed
 - Added missing English and Dutch translations for authentication errors.
