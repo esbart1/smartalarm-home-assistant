@@ -8,10 +8,22 @@
           "email": "E-mailadres",
           "password": "Wachtwoord"
         }
+      },
+      "reauth_confirm": {
+        "title": "SmartAlarm opnieuw authenticeren",
+        "description": "Voer het wachtwoord in voor {email}.",
+        "data": {
+          "password": "Wachtwoord"
+        }
       }
     },
     "error": {
-      "cannot_connect": "Inloggen bij SmartAlarm is mislukt."
+      "cannot_connect": "Inloggen bij SmartAlarm is mislukt.",
+      "invalid_auth": "E-mailadres en wachtwoord komen niet overeen."
+    },
+    "abort": {
+      "reauth_successful": "SmartAlarm is succesvol opnieuw geauthenticeerd.",
+      "already_configured": "Dit SmartAlarm-account is al ingesteld."
     }
   }
 }
