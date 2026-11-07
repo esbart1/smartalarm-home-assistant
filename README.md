@@ -2,7 +2,7 @@
 
 An independent community integration for connecting your SmartAlarm security system to Home Assistant.
 
-**Current version: 0.4.15**
+**Current version: 0.4.16**
 
 [🇳🇱 Nederlands](#-nederlands) | [🇬🇧 English](#-english)
 
@@ -148,6 +148,10 @@ Toont een sensor direct na een herstart een onverwachte status, wacht dan tot de
 Versie 0.4.15 is getest met drie SmartAlarm-accounts. Bedienen van het alarm is op een productie- en testinstallatie van Home Assistant gecontroleerd, met verschillende SmartAlarm-accounts voor dezelfde basis. Ook zijn onder meer herstart, sensorinformatie en behoud van kalibratiegegevens gecontroleerd.
 
 Dit beschrijft de uitgevoerde praktijktests en is geen garantie voor elke SmartAlarm-configuratie of toekomstige API-wijziging. Gebruik bij voorkeur een gepubliceerde release op productie.
+
+### Aanvullingen in versie 0.1.16
+
+De vertalingen van het Home Assistant-configuratieproces zijn aangevuld en verbeterd. Er zijn duidelijke meldingen toegevoegd voor onjuiste inloggegevens en accounts die al zijn ingesteld. Ook zijn de ontbrekende teksten voor herauthenticatie toegevoegd in het Nederlands en Engels.
 
 ### Disclaimer
 
@@ -298,6 +302,10 @@ If a sensor displays an unexpected state immediately after restart, allow time f
 Version 0.4.15 has been tested with three SmartAlarm accounts. Alarm control was checked on production and test Home Assistant installations, using different SmartAlarm accounts connected to the same base. Restart behavior, sensor information and retention of calibration data were also checked.
 
 This describes practical tests performed; it is not a guarantee for every SmartAlarm configuration or future API change. Prefer a published release for production.
+
+### Updates in version 0.1.16
+
+The translations for the Home Assistant configuration flow have been completed and improved. Clear messages have been added for invalid login credentials and accounts that are already configured. The missing reauthentication texts have also been added in Dutch and English.
 
 ### Disclaimer
 
