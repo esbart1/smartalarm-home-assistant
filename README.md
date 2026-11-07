@@ -149,7 +149,7 @@ Versie 0.4.15 is getest met drie SmartAlarm-accounts. Bedienen van het alarm is 
 
 Dit beschrijft de uitgevoerde praktijktests en is geen garantie voor elke SmartAlarm-configuratie of toekomstige API-wijziging. Gebruik bij voorkeur een gepubliceerde release op productie.
 
-### Aanvullingen in versie 0.1.16
+### Aanvullingen in versie 0.4.16
 
 De vertalingen van het Home Assistant-configuratieproces zijn aangevuld en verbeterd. Er zijn duidelijke meldingen toegevoegd voor onjuiste inloggegevens en accounts die al zijn ingesteld. Ook zijn de ontbrekende teksten voor herauthenticatie toegevoegd in het Nederlands en Engels.
 
@@ -303,7 +303,7 @@ Version 0.4.15 has been tested with three SmartAlarm accounts. Alarm control was
 
 This describes practical tests performed; it is not a guarantee for every SmartAlarm configuration or future API change. Prefer a published release for production.
 
-### Updates in version 0.1.16
+### Updates in version 0.4.16
 
 The translations for the Home Assistant configuration flow have been completed and improved. Clear messages have been added for invalid login credentials and accounts that are already configured. The missing reauthentication texts have also been added in Dutch and English.
 
