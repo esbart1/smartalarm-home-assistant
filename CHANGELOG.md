@@ -1,4 +1,15 @@
 # Changelog
+
+
+## [0.1.16] - 2026-11-07
+
+### Fixed
+- Added missing English and Dutch translations for authentication errors.
+- Added a clear error message when the email address and password do not match.
+- Added a message when a SmartAlarm account is already configured.
+- Added missing reauthentication translations, including the title, description and password field.
+- Improved translation support for the Home Assistant configuration flow.
+
 ## 0.4.15
 
 ### Fixed
