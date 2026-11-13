@@ -4,6 +4,7 @@ import logging
 from datetime import timedelta
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import SmartAlarmApi
@@ -29,6 +30,8 @@ class SmartAlarmDeviceCoordinator(DataUpdateCoordinator[list[dict]]):
                 return self.data
             await self.signal_store.async_process_devices(devices)
             return devices
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:
             if self.data:
                 _LOGGER.warning("SmartAlarm apparaten ophalen mislukt: %s; oude lijst behouden", err)
